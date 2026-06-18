@@ -27,6 +27,9 @@ from .formats import (
     SchemaInferencer,
 )
 from .schema_dsl import parse_schema, schema_to_dsl, SchemaSyntaxError
+from .serialize import (
+    tree_to_python, to_json, to_yaml, to_toml, SerializationError,
+)
 
 __all__ = [
     # data model
@@ -46,4 +49,6 @@ __all__ = [
     "tree_from_toml", "infer_schema", "SchemaInferencer",
     # textual schema DSL
     "parse_schema", "schema_to_dsl", "SchemaSyntaxError",
+    # serialization (Data Tree -> concrete syntax)
+    "tree_to_python", "to_json", "to_yaml", "to_toml", "SerializationError",
 ]

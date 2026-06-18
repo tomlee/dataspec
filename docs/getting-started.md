@@ -6,7 +6,8 @@
   3.11; on older Pythons install the `tomli` backport).
 * No required third-party packages for the core library or JSON support.
 * Optional:
-  * **PyYAML** — only if you load YAML (`tree_from_yaml`).
+  * **PyYAML** — only if you load or emit YAML (`tree_from_yaml` / `to_yaml`).
+  * **tomli_w** — only if you emit TOML (`to_toml`); reading TOML uses stdlib.
   * **pytest** — only to run the test suite.
 
 ## Setup
@@ -38,7 +39,7 @@ There is nothing to compile or build — the library is pure Python under `src/`
 python -m pytest tests/ -q
 ```
 
-You should see **154 passing tests**. They cover:
+You should see **172 passing tests**. They cover:
 
 * `tests/test_paper.py` — reproduces the CIKM 2010 worked examples (SA1/SA2/SA3
   equivalence, subschema testing, extraction, irrational-state removal).
@@ -46,6 +47,8 @@ You should see **154 passing tests**. They cover:
   loaders, schema inference, validation diagnostics, and JSON-Schema export.
 * `tests/test_dsl.py` — the textual Schema DSL (parsing, serialization,
   round-trip, errors) and the `conforms_to` conformance algorithm.
+* `tests/test_serialize.py` — emitting Data Trees back to JSON/YAML/TOML and
+  cross-format transcoding.
 
 ## Run the demos
 
@@ -60,6 +63,7 @@ python demos/04_schema_versioning.py       # backward-compatibility via subschem
 python demos/05_subschema_extraction.py    # trim a schema to the keys a client needs
 python demos/06_unions_and_nullable.py     # scalar unions + nullable objects/arrays
 python demos/07_schema_dsl.py              # textual schema DSL + conformance checking
+python demos/08_format_hub.py              # Data Tree as a JSON/YAML/TOML hub
 ```
 
 Or run the quick combined tour:
