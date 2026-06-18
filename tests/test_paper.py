@@ -543,10 +543,14 @@ class TestMakeUseful:
         assert "q1" in sa.states
 
     def test_irrational_cycle_removed(self):
-        """States on a mandatory-transition cycle are removed."""
+        """States on a mandatory-transition cycle are removed.
+
+        q_root reaches the cycle via an *optional* edge (Start?), so q_root
+        itself survives; only the irrational q0/q1 are removed.
+        """
         # q0 → A(mandatory) → q1 → B(mandatory) → q0 (cycle → both irrational)
         sa = SchemaAutomaton("q_root")
-        sa.add_state("q_root", HLang.parse("Start"), VDom.strs())
+        sa.add_state("q_root", HLang.parse("Start?"), VDom.strs())  # optional → q_root useful
         sa.add_state("q0", HLang.parse("A"), VDom.strs())   # A is mandatory
         sa.add_state("q1", HLang.parse("B"), VDom.strs())   # B is mandatory
         sa.add_transition("q_root", "Start", "q0")
@@ -556,6 +560,21 @@ class TestMakeUseful:
         # q0 and q1 form an irrational mandatory cycle → should be removed
         assert "q0" not in sa.states
         assert "q1" not in sa.states
+        # q_root survives because its path into the cycle was optional
+        assert "q_root" in sa.states
+
+    def test_mandatory_path_to_irrational_makes_initial_useless(self):
+        """If the initial state mandatorily requires an irrational state,
+        no useful equivalent SA exists (Theorem 1)."""
+        sa = SchemaAutomaton("q_root")
+        sa.add_state("q_root", HLang.parse("Start"), VDom.strs())  # mandatory
+        sa.add_state("q0", HLang.parse("A"), VDom.strs())
+        sa.add_state("q1", HLang.parse("B"), VDom.strs())
+        sa.add_transition("q_root", "Start", "q0")
+        sa.add_transition("q0", "A", "q1")
+        sa.add_transition("q1", "B", "q0")
+        with pytest.raises(ValueError):
+            make_useful_sa(sa)
 
 
 if __name__ == "__main__":

@@ -229,21 +229,27 @@ class DFA:
                 return False
         return state in self.accept
 
-    def make_complete(self, dead: int = -1) -> "DFA":
-        """Return equivalent complete DFA with explicit dead state."""
-        new = DFA(self.alphabet)
+    def make_complete(self, dead: int = -1, alphabet: Optional[FrozenSet[str]] = None) -> "DFA":
+        """Return equivalent complete DFA with explicit dead state.
+
+        ``alphabet`` may be wider than this DFA's own alphabet; missing symbols
+        route to the dead state.  This matters when comparing two DFAs over
+        different alphabets (e.g. subset/complement testing).
+        """
+        alpha = self.alphabet if alphabet is None else frozenset(alphabet)
+        new = DFA(alpha)
         new.states = set(self.states) | {dead}
         new.start = self.start
         new.accept = set(self.accept)
         for s in new.states:
             new.transitions[s] = {}
-            for sym in self.alphabet:
+            for sym in alpha:
                 dst = self.transitions.get(s, {}).get(sym, dead)
                 new.transitions[s][sym] = dst
         return new
 
-    def complement(self) -> "DFA":
-        c = self.make_complete()
+    def complement(self, alphabet: Optional[FrozenSet[str]] = None) -> "DFA":
+        c = self.make_complete(alphabet=alphabet)
         c.accept = c.states - c.accept
         return c
 
@@ -301,7 +307,11 @@ class DFA:
 
     def is_subset_of(self, other: "DFA") -> bool:
         """L(self) ⊆ L(other)?"""
-        comp = other.complement()
+        # Complement must be taken over the *combined* alphabet, otherwise
+        # symbols only in `self` are invisible to `other`'s complement and
+        # counterexamples using them are missed.
+        alpha = frozenset(self.alphabet | other.alphabet)
+        comp = other.complement(alphabet=alpha)
         return self.intersection(comp).is_empty()
 
     def language_equals(self, other: "DFA") -> bool:

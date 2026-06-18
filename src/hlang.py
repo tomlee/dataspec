@@ -18,6 +18,7 @@ from .nfa import (
     nfa_symbol, nfa_epsilon, nfa_union, nfa_concat,
     nfa_star, nfa_plus, nfa_optional, nfa_repeat,
 )
+from .content_model import ContentModel, KIND_SEQUENCE
 
 
 # ---------------------------------------------------------------------------
@@ -136,8 +137,16 @@ class _Parser:
 # HLang class
 # ---------------------------------------------------------------------------
 
-class HLang:
-    """Horizontal language wrapping an NFA for algorithmic operations."""
+class HLang(ContentModel):
+    """
+    Horizontal language — the ordered ``SequenceModel`` content model.
+
+    Wraps an NFA/DFA so it can decide regular languages over child-edge symbols.
+    This is the content model used for XML element sequences and ordered
+    JSON/YAML array content.
+    """
+
+    kind = KIND_SEQUENCE
 
     def __init__(self, nfa: NFA, description: str = "") -> None:
         self._nfa = nfa
@@ -159,24 +168,47 @@ class HLang:
     def accepts_empty(self) -> bool:
         return self.accepts([])
 
-    def is_subset_of(self, other: "HLang") -> bool:
+    def is_subset_of(self, other: "ContentModel") -> bool:
+        if not isinstance(other, HLang):
+            # an ordered language is a subset of a map/scalar model only if it is
+            # the empty language
+            return self.is_empty()
         return self._get_dfa().is_subset_of(other._get_dfa())
 
-    def language_equals(self, other: "HLang") -> bool:
+    def language_equals(self, other: "ContentModel") -> bool:
         """Full DFA-based language equality test."""
+        if not isinstance(other, HLang):
+            return self.is_empty() and other.is_empty()
         return self._get_dfa().language_equals(other._get_dfa())
 
     def canonical_key(self) -> tuple:
         """Hashable canonical form — equal keys iff languages are equal."""
-        return self._get_dfa().canonical_key()
+        return (KIND_SEQUENCE,) + self._get_dfa().canonical_key()
+
+    def is_empty(self) -> bool:
+        return self._get_dfa().is_empty()
 
     # ------------------------------------------------------------------
     # Symbol-level queries
     # ------------------------------------------------------------------
 
+    def alphabet_set(self) -> Set[str]:
+        """All symbols known to this language.
+
+        Consults both the NFA and any derived DFA so the result stays correct
+        even after operations like ``remove_symbol`` replace the NFA.
+        """
+        alpha: Set[str] = set(self._nfa.alphabet)
+        if self._dfa is not None:
+            alpha |= set(self._dfa.alphabet)
+        return alpha
+
+    def symbols(self) -> Set[str]:
+        return self.alphabet_set()
+
     def _restrictor_dfa(self, excluded_sym: str) -> DFA:
-        """DFA for (Σ - {excluded_sym})* over the NFA's alphabet."""
-        alpha = self._nfa.alphabet | {excluded_sym}
+        """DFA for (Σ - {excluded_sym})* over this language's alphabet."""
+        alpha = self.alphabet_set() | {excluded_sym}
         restrictor = NFA()
         s = restrictor.new_state()
         restrictor.start = s
@@ -193,7 +225,7 @@ class HLang:
         return restricted.is_empty()
 
     def mandatory_symbols(self) -> Set[str]:
-        return {a for a in self._nfa.alphabet if self.is_mandatory(a)}
+        return {a for a in self.alphabet_set() if self.is_mandatory(a)}
 
     def remove_symbol(self, symbol: str) -> "HLang":
         """Return L ∩ (Σ - {symbol})* — strings in this language not containing symbol."""

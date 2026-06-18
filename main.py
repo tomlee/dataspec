@@ -9,9 +9,16 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
+# Ensure unicode (§, ≡, ⊆ ...) prints on Windows consoles using legacy code pages
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except (AttributeError, ValueError):  # pragma: no cover
+    pass
+
 from src import (
     DataTree, SchemaAutomaton, HLang, VDom,
     make_useful_sa, minimize_sa, equivalent_sa, subschema_sa, extract_subschema,
+    tree_from_json, tree_from_python, infer_schema,
 )
 
 
@@ -160,6 +167,38 @@ def main() -> None:
     h_line_star = HLang.parse("Line*")
     print(f"HLang('Line+').is_mandatory('Line') = {h_line_plus.is_mandatory('Line')}")  # True
     print(f"HLang('Line*').is_mandatory('Line') = {h_line_star.is_mandatory('Line')}")  # False
+
+    # -------------------------------------------------------
+    separator("Format-agnostic: canonical schema for JSON / YAML / TOML")
+    # -------------------------------------------------------
+    # Sample JSON documents (unordered objects + arrays)
+    samples = [
+        '{"host": "localhost", "port": 8080, "tags": ["web", "dev"]}',
+        '{"host": "example.com", "port": 443, "tags": ["prod"], "tls": true}',
+    ]
+    trees = [tree_from_json(s) for s in samples]
+    schema = infer_schema(trees)
+    print(f"Inferred a canonical schema with {len(schema.states)} states from "
+          f"{len(trees)} JSON samples.")
+    print("(Objects are modeled as unordered MapModel; arrays as ordered item+)")
+
+    for i, t in enumerate(trees, 1):
+        print(f"  JSON sample {i} validates: {schema.accepts(t)}")
+
+    # 'tls' appeared in only one sample → optional; 'host'/'port'/'tags' → required
+    ok = tree_from_python({"host": "h", "port": 1, "tags": ["x"]})
+    print(f"  Doc without optional 'tls' validates: {schema.accepts(ok)}")
+
+    missing_required = tree_from_python({"host": "h", "tags": ["x"]})
+    print(f"  Doc missing required 'port' validates: {schema.accepts(missing_required)}")
+
+    wrong_type = tree_from_python({"host": "h", "port": "oops", "tags": ["x"]})
+    print(f"  Doc with non-integer 'port' validates: {schema.accepts(wrong_type)}")
+
+    # The same schema validates an equivalent document regardless of source format
+    toml_like = tree_from_python({"host": "t", "port": 22, "tags": ["ssh"], "tls": False})
+    print(f"  A TOML/YAML-origin doc validates against JSON-inferred schema: "
+          f"{schema.accepts(toml_like)}")
 
     print("\nDone.")
 

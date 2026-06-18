@@ -15,15 +15,27 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 class DNode:
-    """A data node storing a value."""
+    """A data node storing a value.
 
-    def __init__(self, node_id: Any, value: str = "") -> None:
+    ``kind`` (optional) records the node's structural role — one of
+    ``content_model.KIND_MAP`` / ``KIND_SEQUENCE`` / ``KIND_SCALAR`` — so that
+    format loaders can distinguish, e.g., an empty object from an empty array.
+    It is ``None`` for the paper's format-neutral usage.
+
+    ``vdom`` (optional) is a value-domain hint attached by loaders and consumed
+    by schema inference; it is never required for validation.
+    """
+
+    def __init__(self, node_id: Any, value: str = "", kind: Any = None, vdom: Any = None) -> None:
         self.node_id = node_id
         self.value = value  # "" represents ε (null value)
+        self.kind = kind
+        self.vdom = vdom
 
     def __repr__(self) -> str:
         v = repr(self.value) if self.value else "ε"
-        return f"DNode({self.node_id}, {v})"
+        k = f", {self.kind}" if self.kind else ""
+        return f"DNode({self.node_id}, {v}{k})"
 
 
 class DEdge:
@@ -47,13 +59,14 @@ class DataTree:
     The ordered child-edge sequence is maintained per node.
     """
 
-    def __init__(self, root_id: Any = 0, root_value: str = "") -> None:
+    def __init__(self, root_id: Any = 0, root_value: str = "",
+                 root_kind: Any = None, root_vdom: Any = None) -> None:
         self._nodes: Dict[Any, DNode] = {}
         self._edges: Dict[Any, DEdge] = {}
         self._child_edges: Dict[Any, List[Any]] = {}  # node_id → ordered list of edge_ids
         self._edge_counter = 0
 
-        root = DNode(root_id, root_value)
+        root = DNode(root_id, root_value, kind=root_kind, vdom=root_vdom)
         self._nodes[root_id] = root
         self._child_edges[root_id] = []
         self.root_id = root_id
@@ -62,8 +75,8 @@ class DataTree:
     # Construction helpers
     # ------------------------------------------------------------------
 
-    def add_node(self, node_id: Any, value: str = "") -> DNode:
-        n = DNode(node_id, value)
+    def add_node(self, node_id: Any, value: str = "", kind: Any = None, vdom: Any = None) -> DNode:
+        n = DNode(node_id, value, kind=kind, vdom=vdom)
         self._nodes[node_id] = n
         self._child_edges[node_id] = []
         return n

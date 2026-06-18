@@ -24,12 +24,12 @@ from .schema_automaton import SchemaAutomaton
 class IncompatibilityReport:
     def __init__(self) -> None:
         self.vdom_issues: List[Tuple[Any, Any]] = []       # (state_A, state_B)
-        self.hlang_issues: List[Tuple[Any, Any]] = []      # (state_A, state_B)
+        self.content_issues: List[Tuple[Any, Any]] = []      # (state_A, state_B)
         self.transition_issues: List[Tuple[Any, str]] = [] # (state_A, symbol)
 
     @property
     def is_compatible(self) -> bool:
-        return not (self.vdom_issues or self.hlang_issues or self.transition_issues)
+        return not (self.vdom_issues or self.content_issues or self.transition_issues)
 
     def __str__(self) -> str:
         if self.is_compatible:
@@ -37,8 +37,8 @@ class IncompatibilityReport:
         lines = ["Incompatibility detected:"]
         for a, b in self.vdom_issues:
             lines.append(f"  VDom mismatch: VDom({a}) ⊄ VDom({b})")
-        for a, b in self.hlang_issues:
-            lines.append(f"  HLang mismatch: HLang({a}) ⊄ HLang({b})")
+        for a, b in self.content_issues:
+            lines.append(f"  Content mismatch: Content({a}) ⊄ Content({b})")
         for a, sym in self.transition_issues:
             lines.append(f"  Transition missing in B: δ({a}, {sym!r}) exists in A but not in B")
         return "\n".join(lines)
@@ -64,7 +64,7 @@ def make_useful_sa(sa: SchemaAutomaton) -> None:
     # ----- Step 1: find all mandatory transitions -----
     # mandatory_trans[q] = set of symbols a where transition q->a is mandatory
     def _mandatory_syms(q: Any) -> Set[str]:
-        return sa.get_hlang(q).mandatory_symbols()
+        return sa.get_content(q).mandatory_symbols()
 
     # ----- Step 2: find irrational states (cycles of mandatory transitions) -----
     useless: Set[Any] = set()
@@ -112,7 +112,7 @@ def make_useful_sa(sa: SchemaAutomaton) -> None:
             # SCC of size > 1 → all members are irrational
             # SCC of size 1 with self-loop on mandatory edge → irrational
             if len(scc) > 1:
-                irrational |= scc
+                irrational.update(scc)
             elif len(scc) == 1:
                 lone = next(iter(scc))
                 if lone in mand_graph.get(lone, set()):
@@ -163,15 +163,15 @@ def make_useful_sa(sa: SchemaAutomaton) -> None:
             if dst in useless
         }
         if bad_syms:
-            h = sa.get_hlang(q)
+            h = sa.get_content(q)
             for sym in bad_syms:
                 h = h.remove_symbol(sym)
-            sa.set_hlang(q, h)
+            sa.set_content(q, h)
 
     # ----- Step 6: remove useless states and their transitions -----
     for q in useless:
         sa.states.discard(q)
-        sa.hlang.pop(q, None)
+        sa.content.pop(q, None)
         sa.vdom.pop(q, None)
         sa.delta.pop(q, None)
 
@@ -208,7 +208,7 @@ def minimize_sa(sa: SchemaAutomaton) -> SchemaAutomaton:
 
     # Initial partition: group states by (HLang canonical key, VDom)
     def _key(q: Any) -> tuple:
-        return (working.get_hlang(q).canonical_key(), working.get_vdom(q))
+        return (working.get_content(q).canonical_key(), working.get_vdom(q))
 
     blocks: Dict[tuple, Set[Any]] = {}
     for q in working.states:
@@ -265,7 +265,7 @@ def minimize_sa(sa: SchemaAutomaton) -> SchemaAutomaton:
     for block in partition:
         bid = block_id[block]
         rep = next(iter(block))
-        result.add_state(bid, working.get_hlang(rep), working.get_vdom(rep))
+        result.add_state(bid, working.get_content(rep), working.get_vdom(rep))
         for sym, dst in working.delta.get(rep, {}).items():
             dst_bid = _block_for(dst)
             if dst_bid is not None:
@@ -298,7 +298,7 @@ def equivalent_sa(sa_a: SchemaAutomaton, sa_b: SchemaAutomaton) -> bool:
 
         if a.get_vdom(qa) != b.get_vdom(qb):
             return False
-        if not a.get_hlang(qa).language_equals(b.get_hlang(qb)):
+        if not a.get_content(qa).language_equals(b.get_content(qb)):
             return False
 
         all_syms = a.symbols | b.symbols
@@ -344,8 +344,8 @@ def subschema_sa(
         if not working_a.get_vdom(qa).is_subset_of(sa_b.get_vdom(qb)):
             report.vdom_issues.append((qa, qb))
 
-        if not working_a.get_hlang(qa).is_subset_of(sa_b.get_hlang(qb)):
-            report.hlang_issues.append((qa, qb))
+        if not working_a.get_content(qa).is_subset_of(sa_b.get_content(qb)):
+            report.content_issues.append((qa, qb))
 
         for sym in working_a.symbols:
             na = working_a.transition(qa, sym)
@@ -401,7 +401,7 @@ def extract_subschema(
         result.delta.get(q, {}).pop(sym, None)
 
         # Step 13: update HLang to exclude strings containing sym
-        result.set_hlang(q, result.get_hlang(q).remove_symbol(sym))
+        result.set_content(q, result.get_content(q).remove_symbol(sym))
 
         # Step 5: if this was a mandatory transition, q itself must be removed
         # We detect "was mandatory" by checking the *original* HLang before
@@ -428,9 +428,9 @@ def extract_subschema(
         # current — if the "remove_symbol" produced an empty language, sym was
         # mandatory before.
 
-        current_hlang = result.get_hlang(q)
-        # If removing sym made HLang empty, sym was mandatory → remove q
-        if current_hlang._get_dfa().is_empty():
+        current_content = result.get_content(q)
+        # If removing sym made the content model empty, sym was mandatory → remove q
+        if current_content.is_empty():
             if q == result.initial:
                 raise ValueError(
                     f"No valid subschema: initial state {q!r} requires "
