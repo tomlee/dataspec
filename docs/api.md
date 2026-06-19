@@ -66,6 +66,10 @@ full list of adjustment codes.
 **`WriteReport`** — `.adjustments` (list of `Adjustment`), `.warnings`,
 `.errors`; `bool(report)` is `True` when there are no errors.
 **`Adjustment`** — a `NamedTuple(path, code, message, severity)`.
+**`finish_write(text, rep, *, strict=False, report=None) -> str`** — the
+shared `strict`/`report` decision every built-in writer ends with; format
+plugins can call it too instead of reimplementing it (see
+[Writing a format plugin](plugins.md)).
 
 ## Schemas
 

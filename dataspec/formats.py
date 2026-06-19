@@ -40,8 +40,8 @@ import math as _math
 import re as _re
 from typing import Any, Optional, Tuple
 
-from .errors import ParseError, WriteError
-from .report import WriteReport
+from .errors import ParseError
+from .report import WriteReport, finish_write
 
 # ===========================================================================
 # JSON
@@ -54,7 +54,7 @@ def read_json(text: str) -> Any:
 def write_json(data: Any, *, indent: Optional[int] = None, sort_keys: bool = False,
                strict: bool = False, report: Optional[WriteReport] = None) -> str:
     text, rep = _serialize_json(data, indent=indent, sort_keys=sort_keys)
-    return _finish(text, rep, strict, report)
+    return finish_write(text, rep, strict=strict, report=report)
 
 
 def check_json(data: Any) -> WriteReport:
@@ -118,7 +118,7 @@ def read_yaml(text: str) -> Any:
 def write_yaml(data: Any, *, sort_keys: bool = False,
                strict: bool = False, report: Optional[WriteReport] = None) -> str:
     text, rep = _serialize_yaml(data, sort_keys=sort_keys)
-    return _finish(text, rep, strict, report)
+    return finish_write(text, rep, strict=strict, report=report)
 
 
 def check_yaml(data: Any) -> WriteReport:
@@ -184,7 +184,7 @@ def write_toml(data: Any, *, strict: bool = False,
                report: Optional[WriteReport] = None,
                null_style: str = "omit", wrap_key: str = "value") -> str:
     text, rep = _serialize_toml(data, null_style=null_style, wrap_key=wrap_key)
-    return _finish(text, rep, strict, report)
+    return finish_write(text, rep, strict=strict, report=report)
 
 
 def check_toml(data: Any, *, null_style: str = "omit",
@@ -263,7 +263,7 @@ def write_xml(data: Any, *, root: str = "root", strict: bool = False,
               null_style: str = "omit", wrap_key: str = "value") -> str:
     text, rep = _serialize_xml(data, root=root, null_style=null_style,
                                wrap_key=wrap_key)
-    return _finish(text, rep, strict, report)
+    return finish_write(text, rep, strict=strict, report=report)
 
 
 def check_xml(data: Any, *, root: str = "root", null_style: str = "omit",
@@ -419,15 +419,6 @@ def _xml_parser():
 # ===========================================================================
 # shared
 # ===========================================================================
-
-def _finish(text: str, rep: WriteReport, strict: bool,
-            report: Optional[WriteReport]) -> str:
-    if report is not None:
-        report.extend(rep)
-    if strict and rep.adjustments:
-        raise WriteError(str(rep), report=rep)
-    return text
-
 
 def _need(module: str, name: str, how: str):
     try:

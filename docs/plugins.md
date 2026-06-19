@@ -63,23 +63,27 @@ write_toml(doc, strict=True)      # raise WriteError if anything was adjusted
 
 If your format can hold every Document as-is (no nulls problem, no missing
 types), your report is always empty and `strict` never fires — that's a valid,
-simple plugin. If it can't, reproduce the pattern every built-in uses:
+simple plugin. If it can't, factor your real logic into a helper that returns
+`(text, WriteReport)`, and hand the `strict`/`report` decision to
+[`finish_write`](api.md#reading-and-writing-formats) — the same helper every built-in
+writer uses internally:
 
 ```python
-from dataspec import WriteReport, WriteError
+from dataspec import WriteReport, finish_write
 
 def write_csv(data, *, strict=False, report=None, **opts):
     text, rep = _serialize_csv(data, **opts)   # your real logic, returns (str, WriteReport)
-    if report is not None:
-        report.extend(rep)
-    if strict and rep.adjustments:
-        raise WriteError(str(rep), report=rep)
-    return text
+    return finish_write(text, rep, strict=strict, report=report)
 
 def check_csv(data, **opts):
     _text, rep = _serialize_csv(data, **opts)
     return rep
 ```
+
+`finish_write(text, rep, *, strict=False, report=None)` merges `rep` into
+`report` if given, raises `WriteError(str(rep), report=rep)` if `strict` and
+`rep` has any adjustment (any severity), and otherwise returns `text`
+unchanged — there's no need to reimplement that decision yourself.
 
 Inside `_serialize_csv`, call `rep.add(path, code, message, severity)` for
 every adjustment, where:
@@ -102,7 +106,7 @@ import csv
 import io
 from typing import Any
 
-from dataspec import Format, ParseError, WriteReport, WriteError, register_format
+from dataspec import Format, ParseError, WriteReport, WriteError, finish_write, register_format
 
 
 def read_csv(text: str) -> Any:
@@ -137,11 +141,7 @@ def _serialize_csv(data, **_opts):
 
 def write_csv(data, *, strict: bool = False, report: WriteReport = None, **opts) -> str:
     text, rep = _serialize_csv(data, **opts)
-    if report is not None:
-        report.extend(rep)
-    if strict and rep.adjustments:
-        raise WriteError(str(rep), report=rep)
-    return text
+    return finish_write(text, rep, strict=strict, report=report)
 
 
 def check_csv(data, **opts) -> WriteReport:
@@ -194,7 +194,8 @@ def test_csv_reports_nested_data():
 
 - [ ] `name` is unique (registering an existing name replaces it silently).
 - [ ] `read` raises `ParseError` — not a bare exception — on invalid input.
-- [ ] `write` accepts and honors `strict` and `report`, even if always a no-op.
+- [ ] `write` accepts `strict` and `report` and ends with `finish_write(...)`
+      (even if your format never adjusts anything).
 - [ ] `check` returns the same report `write` would produce, without output.
 - [ ] Every adjustment has a stable `code` and the right `severity`.
 - [ ] `extensions` and `requires` are set if relevant (informational only —
