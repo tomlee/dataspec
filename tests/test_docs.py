@@ -27,8 +27,8 @@ def test_usage_programmatic_schema():
         "name": Field(ScalarType({STRING}), True),
         "age": Field(ScalarType({INTEGER}), False),
     }))
-    assert s.validate({"name": "A"}).ok
-    assert not s.validate({"age": 1}).ok
+    assert s.validate(ds.doc({"name": "A"})).ok
+    assert not s.validate(ds.doc({"age": 1})).ok
 
 
 def test_formats_null_option_c():
@@ -37,14 +37,15 @@ def test_formats_null_option_c():
 
 def test_getting_started_map_and_any():
     # snippets shown in docs/schema.md
-    assert ds.parse_schema("root { [string]: integer }").accepts({"jan": 1, "feb": 2})
+    assert ds.parse_schema("root { [string]: integer }").accepts(ds.doc({"jan": 1, "feb": 2}))
     assert ds.parse_schema("root { name: string, meta: any }").accepts(
-        {"name": "A", "meta": {"x": [1, 2]}})
+        ds.doc({"name": "A", "meta": {"x": [1, 2]}}))
 
 
 EXAMPLES = [
     "quickstart.py", "validate_api_payload.py", "convert_formats.py",
     "infer_and_refine.py", "version_check.py",
+    "build_document.py", "build_schema.py",
 ]
 
 

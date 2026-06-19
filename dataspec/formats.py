@@ -445,3 +445,20 @@ def _name(v: Any) -> str:
     if isinstance(v, dict):
         return "object"
     return type(v).__name__
+
+
+# ===========================================================================
+# Registry — register the four built-in formats as plugins
+# ===========================================================================
+
+from ._registry import (  # noqa: E402  (kept at the bottom to avoid import cycles)
+    Format, register_format, get_format, formats,
+)
+
+register_format(Format("json", read_json, write_json, check_json, (".json",)))
+register_format(Format("yaml", read_yaml, write_yaml, check_yaml,
+                       (".yaml", ".yml"), ("pyyaml",)))
+register_format(Format("toml", read_toml, write_toml, check_toml,
+                       (".toml",), ("tomli_w",)))
+register_format(Format("xml", read_xml, write_xml, check_xml,
+                       (".xml",), ("defusedxml",)))

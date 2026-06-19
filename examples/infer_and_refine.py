@@ -6,7 +6,7 @@ Run: python3 examples/infer_and_refine.py
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dataspec import infer, parse_schema
+from dataspec import infer, parse_schema, doc
 
 
 def main():
@@ -32,7 +32,7 @@ def main():
         }
     """)
     print("Refined schema still accepts every sample:",
-          all(refined.accepts(s) for s in samples))
+          all(refined.accepts(doc(s)) for s in samples))
 
 
 if __name__ == "__main__":

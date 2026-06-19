@@ -1,7 +1,7 @@
 """infer, equivalent, compatible_with, normalize."""
 import pytest
 
-from dataspec import parse_schema, infer, read_json
+from dataspec import parse_schema, infer, read_json, doc, Doc
 
 
 # ------------------------------------------------------------- infer
@@ -13,43 +13,43 @@ class TestInfer:
         ]
         s = infer(samples)
         for sample in samples:
-            assert s.validate(sample).ok
+            assert s.validate(doc(sample)).ok
 
     def test_optional_field(self):
         s = infer([{"name": "Ann", "age": 30}, {"name": "Bob"}])
-        assert s.validate({"name": "Cy"}).ok          # age optional
-        assert not s.validate({"age": 1}).ok          # name required
+        assert s.validate(doc({"name": "Cy"})).ok          # age optional
+        assert not s.validate(doc({"age": 1})).ok          # name required
 
     def test_scalar_union_is_sound(self):
         # the classic soundness check: schema must accept its own samples
         samples = [{"v": 1}, {"v": "x"}]
         s = infer(samples)
         for sample in samples:
-            assert s.validate(sample).ok
+            assert s.validate(doc(sample)).ok
 
     def test_int_float_widens_to_number(self):
         s = infer([{"v": 1}, {"v": 2.5}])
-        assert s.validate({"v": 7}).ok
-        assert s.validate({"v": 7.7}).ok
+        assert s.validate(doc({"v": 7})).ok
+        assert s.validate(doc({"v": 7.7})).ok
 
     def test_nullable(self):
         s = infer([{"v": "a"}, {"v": None}])
-        assert s.validate({"v": "b"}).ok
-        assert s.validate({"v": None}).ok
-        assert not s.validate({"v": 1}).ok
+        assert s.validate(doc({"v": "b"})).ok
+        assert s.validate(doc({"v": None})).ok
+        assert not s.validate(doc({"v": 1})).ok
 
     def test_array_generalises_on_length(self):
         # inference is permissive on length: any count of the inferred item type
         s = infer([{"xs": [1, 2]}, {"xs": [1, 2, 3, 4]}])
-        assert s.validate({"xs": [1, 2, 3]}).ok
-        assert s.validate({"xs": [9]}).ok
-        assert s.validate({"xs": []}).ok               # empty allowed too
-        assert not s.validate({"xs": ["nope"]}).ok     # but item type is enforced
+        assert s.validate(doc({"xs": [1, 2, 3]})).ok
+        assert s.validate(doc({"xs": [9]})).ok
+        assert s.validate(doc({"xs": []})).ok               # empty allowed too
+        assert not s.validate(doc({"xs": ["nope"]})).ok     # but item type is enforced
 
     def test_only_empty_arrays_infer_empty_only(self):
         s = infer([{"xs": []}])
-        assert s.validate({"xs": []}).ok
-        assert not s.validate({"xs": [1]}).ok          # no element type was seen
+        assert s.validate(doc({"xs": []})).ok
+        assert not s.validate(doc({"xs": [1]})).ok          # no element type was seen
 
     def test_mixed_structure_raises(self):
         with pytest.raises(Exception):
@@ -57,7 +57,7 @@ class TestInfer:
 
     def test_round_trip_through_json(self):
         s = infer([read_json('{"id": 1, "tags": ["a"]}')])
-        assert s.validate(read_json('{"id": 9, "tags": ["b", "c"]}')).ok
+        assert s.validate(Doc.from_json('{"id": 9, "tags": ["b", "c"]}')).ok
 
 
 # ------------------------------------------------------ equivalent / compatible

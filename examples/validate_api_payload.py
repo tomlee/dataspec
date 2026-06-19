@@ -6,7 +6,7 @@ Run: python3 examples/validate_api_payload.py
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dataspec import read_json, parse_schema
+from dataspec import Doc, parse_schema
 
 SCHEMA = parse_schema("""
     root {
@@ -20,12 +20,12 @@ SCHEMA = parse_schema("""
 
 
 def handle(raw_json: str) -> None:
-    doc = read_json(raw_json)
-    result = SCHEMA.validate(doc)
+    d = Doc.from_json(raw_json)               # import the payload into a Doc
+    result = SCHEMA.validate(d)               # validation is Doc-only
     if result:
-        print("OK  ", doc.get("email"))
+        print("OK  ", d.get("email"))
     else:
-        print("FAIL", doc.get("email", "?"))
+        print("FAIL", d.get_or("email", "?"))
         for err in result.errors:
             print(f"     {err.path}: {err.message}")
 

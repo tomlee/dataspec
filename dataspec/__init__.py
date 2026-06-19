@@ -1,26 +1,34 @@
 """dataspec — one data model, many formats.
 
-A **Document** is plain Python data (objects, arrays, scalars). A **Schema**
-describes the shape a Document should have. Read a format into a Document,
-validate it against a Schema, and write it back out to any format.
+A **Document** is a tree of objects, arrays, and scalars, held by a :class:`Doc`.
+A **Schema** describes the shape a Document should have. Read a format into a
+Doc, validate it against a Schema, and write it back out to any format.
 
-    from dataspec import read_json, write_toml, parse_schema, infer
+    from dataspec import Doc, obj, string, arr, schema
 
-    data   = read_json('{"name": "Ann", "tags": ["x", "y"]}')
-    toml   = write_toml(data)                     # transcode JSON -> TOML
+    d = Doc.from_json('{"name": "Ann", "tags": ["x", "y"]}')
+    d.to_toml()                                   # transcode JSON -> TOML
 
-    schema = parse_schema("root { name: string, tags: [string] }")
-    schema.validate(data).ok                      # True
+    s = schema(obj(name=string, tags=arr(string)))
+    s.validate(d).ok                              # True
 
-    schema2 = infer([data])                       # learn a schema from samples
+The low-level functional codecs (``read_json`` / ``write_toml`` / …) operate on
+plain Python and are still available; ``Doc`` is the object layer over them.
 """
 
-from .errors import DataspecError, SchemaError, ParseError, WriteError
+from .errors import (
+    DataspecError, SchemaError, ParseError, WriteError, DocumentError,
+)
 from .report import WriteReport, Adjustment
 from .schema import (
     Schema, ValidationResult, Error,
     Type, AnyType, ScalarType, ArrayType, ObjectType, Field, RefType,
     STRING, INTEGER, NUMBER, BOOLEAN, DATE, TIME, DATETIME,
+)
+from .document import Doc, doc
+from .builder import (
+    obj, arr, mapping, ref, enum, optional, nullable, schema,
+    string, integer, number, boolean, date, time, datetime, any,
 )
 from .dsl import parse_schema, to_dsl
 from .infer import infer
@@ -29,22 +37,30 @@ from .formats import (
     read_yaml, write_yaml, check_yaml,
     read_toml, write_toml, check_toml,
     read_xml, write_xml, check_xml,
+    Format, register_format, get_format, formats,
 )
 
 __all__ = [
     # errors
-    "DataspecError", "SchemaError", "ParseError", "WriteError",
+    "DataspecError", "SchemaError", "ParseError", "WriteError", "DocumentError",
     # serialization reports
     "WriteReport", "Adjustment",
+    # document (data DOM)
+    "Doc", "doc",
     # schema model
     "Schema", "ValidationResult", "Error",
     "Type", "AnyType", "ScalarType", "ArrayType", "ObjectType", "Field", "RefType",
     "STRING", "INTEGER", "NUMBER", "BOOLEAN", "DATE", "TIME", "DATETIME",
+    # schema builder
+    "obj", "arr", "mapping", "ref", "enum", "optional", "nullable", "schema",
+    "string", "integer", "number", "boolean", "date", "time", "datetime", "any",
     # dsl
     "parse_schema", "to_dsl",
     # operations
     "infer",
-    # formats
+    # format registry
+    "Format", "register_format", "get_format", "formats",
+    # functional codecs
     "read_json", "write_json", "check_json",
     "read_yaml", "write_yaml", "check_yaml",
     "read_toml", "write_toml", "check_toml",

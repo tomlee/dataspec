@@ -127,6 +127,10 @@ class ArrayType(Type):
         self.max = max  # None = unbounded
         self.nullable = nullable
 
+    def children(self) -> List[Tuple[str, Type]]:
+        """The single child of an array: its item type, under the key ``'[]'``."""
+        return [("[]", self.item)]
+
     def __repr__(self) -> str:
         hi = "" if self.max is None else self.max
         return f"array({self.item!r})[{self.min},{hi}]"
@@ -175,6 +179,24 @@ class ObjectType(Type):
 
     def required_keys(self) -> Set[str]:
         return {k for k, f in self.fields.items() if f.required}
+
+    # -- uniform child getters ------------------------------------------
+    def field(self, name: str) -> Type:
+        """The type of a named field, or raise if there is no such field."""
+        try:
+            return self.fields[name].type
+        except KeyError:
+            raise SchemaError(f"no field {name!r}") from None
+
+    def field_names(self) -> List[str]:
+        return list(self.fields.keys())
+
+    def children(self) -> List[Tuple[str, Type]]:
+        """(name, type) for each named field; plus ('[rest]', rest) if a map/open."""
+        out: List[Tuple[str, Type]] = [(k, f.type) for k, f in self.fields.items()]
+        if self.rest is not None:
+            out.append(("[rest]", self.rest))
+        return out
 
     def __repr__(self) -> str:
         tail = "" if self.rest is None else (", ..." if isinstance(self.rest, AnyType)
@@ -248,14 +270,23 @@ class Schema:
             walk(t)
 
     # -- validation -----------------------------------------------------
-    def validate(self, data: Any) -> ValidationResult:
-        """Check a Document (plain Python data) against this schema."""
+    def validate(self, doc: Any) -> ValidationResult:
+        """Check a :class:`~dataspec.document.Doc` against this schema.
+
+        Validation operates on a Document, not on raw format text — read or
+        import your data into a ``Doc`` first (``Doc.from_json`` / ``doc(...)``).
+        """
+        from .document import Doc
+        if not isinstance(doc, Doc):
+            raise TypeError(
+                "validate() expects a Doc; wrap your data first, e.g. "
+                "doc(my_dict) or Doc.from_json(text)")
         result = ValidationResult()
-        self._check(data, self.root, "$", result)
+        self._check(doc.to_data(), self.root, "$", result)
         return result
 
-    def accepts(self, data: Any) -> bool:
-        return self.validate(data).ok
+    def accepts(self, doc: Any) -> bool:
+        return self.validate(doc).ok
 
     def _check(self, data: Any, t: Type, path: str, res: ValidationResult) -> None:
         t, nullable = self.peel(t)

@@ -20,8 +20,12 @@ def infer(samples, open_objects: bool = False) -> Schema:
     * scalars union their kinds (and become nullable if any sample was null).
 
     Set ``open_objects=True`` to infer open objects (extra keys allowed).
+
+    Samples may be plain Python Documents or :class:`~dataspec.document.Doc`
+    objects (which are unwrapped automatically).
     """
-    samples = list(samples)
+    from .document import Doc
+    samples = [s.to_data() if isinstance(s, Doc) else s for s in samples]
     if not samples:
         raise SchemaError("cannot infer a schema from zero samples")
     root = _infer(samples, open_objects)

@@ -10,36 +10,33 @@ try:
 except Exception:
     pass
 
-from dataspec import (
-    read_json, write_yaml, write_toml, write_xml, check_toml,
-    WriteError, WriteReport,
-)
+from dataspec import Doc, doc, check_toml, WriteReport, WriteError
 
 
 def main():
-    doc = read_json('{"name": "Ann", "age": 30, "tags": ["x", "y"], '
-                    '"address": {"city": "HK"}}')
+    d = Doc.from_json('{"name": "Ann", "age": 30, "tags": ["x", "y"], '
+                      '"address": {"city": "HK"}}')
 
-    print("-- YAML --");  print(write_yaml(doc), end="")
-    print("-- TOML --");  print(write_toml(doc))
-    print("-- XML  --");  print(write_xml(doc, root="person"))
+    print("-- YAML --");  print(d.to_yaml(), end="")
+    print("-- TOML --");  print(d.to_toml())
+    print("-- XML  --");  print(d.to_xml(root="person"))
 
     print("\n-- lenient by default --")
     # TOML has no null: the null field is dropped, the null array item too.
     rep = WriteReport()
-    out = write_toml({"a": 1, "b": None, "xs": [1, None, 2]}, report=rep)
+    out = doc({"a": 1, "b": None, "xs": [1, None, 2]}).to_toml(report=rep)
     print("output:\n" + out.rstrip())
     print("adjustments:")
     for adj in rep:
         print(f"  [{adj.severity}] {adj.path}: {adj.message}")
 
     print("\n-- inspect before writing (check_*) --")
-    rep = check_toml({"xs": [1, None, 2]})
+    rep = check_toml(doc({"xs": [1, None, 2]}).to_data())
     print("safe to write losslessly?", bool(rep))   # False: an error-level drop
 
     print("\n-- strict: refuse anything lossy --")
     try:
-        write_toml({"xs": [1, None, 2]}, strict=True)
+        doc({"xs": [1, None, 2]}).to_toml(strict=True)
     except WriteError as e:
         print("WriteError:", e)
 

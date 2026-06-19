@@ -2,11 +2,11 @@
 import datetime
 import pytest
 
-from dataspec import parse_schema, SchemaError
+from dataspec import parse_schema, SchemaError, doc
 
 
 def valid(dsl, data):
-    return parse_schema(dsl).validate(data)
+    return parse_schema(dsl).validate(doc(data))
 
 
 class TestScalars:
@@ -174,4 +174,4 @@ class TestDslErrors:
 
     def test_unknown_reference_on_validate(self):
         with pytest.raises(SchemaError):
-            parse_schema("root { a: Missing }").validate({"a": 1})
+            parse_schema("root { a: Missing }").validate(doc({"a": 1}))

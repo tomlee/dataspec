@@ -8,49 +8,42 @@ except Exception:
     pass
 
 from dataspec import (
-    read_json, write_toml, write_yaml, write_xml, read_xml,
-    parse_schema, infer, to_dsl,
+    Doc, doc, obj, arr, string, integer, boolean, optional, schema, infer,
 )
 
 
 def main():
-    print("== 1. Read a format into a Document (plain Python data) ==")
-    data = read_json('{"name": "Ann", "age": 30, "tags": ["x", "y"], '
-                     '"address": {"city": "HK"}}')
-    print(data)
+    print("== 1. Import data into a Document (a guarded data structure) ==")
+    d = Doc.from_json('{"name": "Ann", "age": 30, "tags": ["x", "y"], '
+                      '"address": {"city": "HK"}}')
+    print("kind:", d.kind, "| keys:", d.keys())
 
-    print("\n== 2. Write the same Document to other formats ==")
-    print("-- TOML --");  print(write_toml(data))
-    print("-- YAML --");  print(write_yaml(data), end="")
-    print("-- XML  --");  print(write_xml(data, root="person"))
+    print("\n== 2. Navigate and edit through the API ==")
+    print("city:", d.child("address").get("city"))
+    d.child("address").set("city", "NY")           # modify a scalar leaf
+    d.add("active", True)                           # add a new field
+    print("city now:", d.child("address").get("city"), "| active:", d.get("active"))
 
-    print("\n== 3. Validate against a Schema ==")
-    schema = parse_schema("""
-        root {
-            name:    string,
-            age:     integer,
-            tags:    [string],
-            address: { city: string }?,
-        }
-    """)
-    print("valid doc:", schema.validate(data))
-    bad = read_json('{"name": 1, "tags": ["x"]}')
-    print(schema.validate(bad))
+    print("\n== 3. Serialize the same Document to any format ==")
+    print("-- TOML --"); print(d.to_toml())
+    print("-- YAML --"); print(d.to_yaml(), end="")
 
-    print("\n== 4. Infer a Schema from samples, print it as DSL ==")
+    print("\n== 4. Validate against a Schema (built in Python) ==")
+    s = schema(obj(
+        name    = string,
+        age     = integer,
+        tags    = arr(string),
+        address = obj(city=string),
+        active  = optional(boolean),
+    ))
+    print("validate:", s.validate(d))
+
+    print("\n== 5. Infer a Schema from samples ==")
     learned = infer([
-        read_json('{"id": 1, "email": "a@x.io", "roles": ["admin"]}'),
-        read_json('{"id": 2, "roles": []}'),   # no email -> optional
+        doc({"id": 1, "email": "a@x.io", "roles": ["admin"]}),
+        doc({"id": 2, "roles": []}),               # no email -> optional
     ])
-    print(to_dsl(learned), end="")
-
-    print("\n== 5. Check version compatibility ==")
-    v1 = parse_schema("root { host: string, port: integer }")
-    v2 = parse_schema("root { host: string, port: integer, tls?: boolean }")
-    print("v1 docs valid under v2 (backward compatible):", v1.compatible_with(v2))
-
-    print("\n== 6. XML round-trips back to the same data ==")
-    print(read_xml(write_xml(data, root="person")) == data)
+    print(learned.to_dsl(), end="")
 
 
 if __name__ == "__main__":
