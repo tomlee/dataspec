@@ -1,8 +1,9 @@
 # dataspec
 
-[![tests](https://img.shields.io/badge/tests-108%20passing-brightgreen)](tests/)
+[![tests](https://img.shields.io/badge/tests-121%20passing-brightgreen)](tests/)
 [![python](https://img.shields.io/badge/python-3.11%2B-blue)](#installation)
 [![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey)](LICENSE)
+[![status](https://img.shields.io/badge/status-alpha-orange)](#status)
 
 **One data model for JSON, YAML, TOML, and XML.** Read any of them into plain
 Python data, validate it against a schema, and write it back out to any of the
@@ -123,6 +124,15 @@ Run the full tour with `python3 examples/quickstart.py`.
 pip install pytest pyyaml tomli_w defusedxml
 python3 -m pytest          # 108 tests
 ```
+
+## Status
+
+dataspec is **alpha** (v0.1.0a1) and under active development. The core model,
+schema language, and format codecs are working and tested, but the public API may
+change before a stable release. It is not yet on PyPI — install from a checkout.
+
+Feedback and bug reports are welcome:
+<https://github.com/tomlee/dataspec/issues>
 
 ## License
 

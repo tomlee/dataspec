@@ -51,4 +51,4 @@ __all__ = [
     "read_xml", "write_xml", "check_xml",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.1.0a1"
