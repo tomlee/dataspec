@@ -1,8 +1,9 @@
 """Validation of Documents against Schemas."""
 import datetime
+
 import pytest
 
-from dataspec import parse_schema, SchemaError, doc
+from dataspec import SchemaError, doc, parse_schema
 
 
 def valid(dsl, data):

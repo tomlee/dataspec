@@ -2,7 +2,13 @@
 import pytest
 
 from dataspec import (
-    Doc, doc, Format, register_format, get_format, formats, WriteReport,
+    Doc,
+    Format,
+    WriteReport,
+    doc,
+    formats,
+    get_format,
+    register_format,
 )
 
 

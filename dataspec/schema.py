@@ -29,7 +29,6 @@ from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
 
 from .errors import SchemaError
 
-
 # Scalar kind names (null is handled by `nullable`, not a kind).
 STRING = "string"
 INTEGER = "integer"

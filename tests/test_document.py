@@ -3,7 +3,7 @@ import datetime
 
 import pytest
 
-from dataspec import Doc, doc, DocumentError, DetachedNode
+from dataspec import DetachedNode, Doc, DocumentError, doc
 
 
 # ---------------------------------------------------------------- import guard

@@ -16,28 +16,65 @@ The low-level functional codecs (``read_json`` / ``write_toml`` / …) operate o
 plain Python and are still available; ``Doc`` is the object layer over them.
 """
 
-from .errors import (
-    DataspecError, SchemaError, ParseError, WriteError, DocumentError,
-    DetachedNode,
-)
-from .report import WriteReport, Adjustment
-from .schema import (
-    Schema, ValidationResult, Error,
-    Type, AnyType, ScalarType, ArrayType, ObjectType, Field, RefType,
-    STRING, INTEGER, NUMBER, BOOLEAN, DATE, TIME, DATETIME,
+from .builder import (
+    arr,
+    enum,
+    mapping,
+    nullable,
+    obj,
+    optional,
+    ref,
+    schema,
+    t,
 )
 from .document import Doc, doc
-from .builder import (
-    obj, arr, mapping, ref, enum, optional, nullable, schema, t,
-)
 from .dsl import parse_schema, to_dsl
-from .infer import infer
+from .errors import (
+    DataspecError,
+    DetachedNode,
+    DocumentError,
+    ParseError,
+    SchemaError,
+    WriteError,
+)
 from .formats import (
-    read_json, write_json, check_json,
-    read_yaml, write_yaml, check_yaml,
-    read_toml, write_toml, check_toml,
-    read_xml, write_xml, check_xml,
-    Format, register_format, get_format, formats,
+    Format,
+    check_json,
+    check_toml,
+    check_xml,
+    check_yaml,
+    formats,
+    get_format,
+    read_json,
+    read_toml,
+    read_xml,
+    read_yaml,
+    register_format,
+    write_json,
+    write_toml,
+    write_xml,
+    write_yaml,
+)
+from .infer import infer
+from .report import Adjustment, WriteReport
+from .schema import (
+    BOOLEAN,
+    DATE,
+    DATETIME,
+    INTEGER,
+    NUMBER,
+    STRING,
+    TIME,
+    AnyType,
+    ArrayType,
+    Error,
+    Field,
+    ObjectType,
+    RefType,
+    ScalarType,
+    Schema,
+    Type,
+    ValidationResult,
 )
 
 __all__ = [

@@ -3,12 +3,24 @@
 from __future__ import annotations
 
 import datetime as _dt
-from typing import Any, List, Optional
+from typing import Any, List
 
 from .errors import SchemaError
 from .schema import (
-    Schema, Type, AnyType, ScalarType, ArrayType, ObjectType, Field,
-    STRING, INTEGER, NUMBER, BOOLEAN, DATE, TIME, DATETIME,
+    BOOLEAN,
+    DATE,
+    DATETIME,
+    INTEGER,
+    NUMBER,
+    STRING,
+    TIME,
+    AnyType,
+    ArrayType,
+    Field,
+    ObjectType,
+    ScalarType,
+    Schema,
+    Type,
 )
 
 
