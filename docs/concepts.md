@@ -1,7 +1,8 @@
 # Concepts
 
-dataspec has a small vocabulary. Learn these five ideas and the rest of the API
-falls into place.
+dataspec has a small vocabulary — five ideas, covered below: **Document**,
+**Schema**, the structure/domain split (**Object**), **Validation**, and
+**Conversion**. Learn these and the rest of the API falls into place.
 
 ## Document
 
@@ -17,10 +18,10 @@ Document, which is what keeps it well-formed:
 ```python
 from dataspec import Doc, doc
 
-d = Doc.from_json('{"name": "Ann", "tags": ["x", "y"]}')   # import from a format
-d = doc({"name": "Ann", "tags": ["x", "y"]})               # import a Python value
-d.child("tags").append("z")                                 # edit through the API
-d.to_toml()                                                 # emit to any format
+d = Doc.from_json('{"name": "Ann", "address": {"city": "HK"}}')   # import from a format
+d = doc({"name": "Ann", "address": {"city": "HK"}})               # import a Python value
+d.child("address").set("city", "Shenzhen")                         # edit through the API
+d.to_toml()                                                         # emit to any format
 ```
 
 See [Documents](document.md) for the full API.
@@ -33,11 +34,11 @@ that mirror the data — `ObjectType`, `ArrayType`, `ScalarType`, `AnyType`,
 `RefType`. You can write a schema three ways, all producing the same object tree:
 
 ```python
-from dataspec import parse_schema, obj, arr, schema, infer, t, doc
+from dataspec import parse_schema, obj, schema, infer, t, doc
 
-parse_schema("root { name: string, tags: [string] }")   # 1. the DSL (text)
-schema(obj(name=t.string, tags=arr(t.string)))           # 2. the Python builder
-infer([doc({"name": "Ann", "tags": ["x"]})])             # 3. inferred from samples
+parse_schema("root { name: string, address: { city: string } }")    # 1. the DSL (text)
+schema(obj(name=t.string, address=obj(city=t.string)))               # 2. the Python builder
+infer([doc({"name": "Ann", "address": {"city": "HK"}})])             # 3. inferred from samples
 ```
 
 See [Schemas](schema.md).
@@ -70,7 +71,7 @@ d = Doc.from_json(payload)
 result = schema.validate(d)            # validation is Doc-only
 if not result.ok:
     for err in result.errors:
-        print(err.path, err.message)   # e.g. "$.tags[0]  expected string, got integer"
+        print(err.path, err.message)   # e.g. "$.address.city expected string, got integer"
 ```
 
 ## Conversion
@@ -82,7 +83,8 @@ and records what changed in a report, rather than failing. Ask for the report,
 or opt into a strict lossless mode:
 
 ```python
-d.to_toml()                       # lenient: adjust + succeed
+d = doc({"name": "Ann", "address": {"city": "HK"}, "born": None})
+d.to_toml()                       # lenient: adjust + succeed (the null is omitted)
 d.to_toml(strict=True)            # raise WriteError if anything is lossy
 ```
 
