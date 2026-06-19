@@ -28,6 +28,26 @@ Doc.from_format("json", text)          # generic (works for plugin formats too)
 and become lists; anything outside the Document model raises `DocumentError`
 (see [The guard](#the-guard)).
 
+### Building one piece at a time
+
+You don't need an existing value or format string at all — start from `doc()`
+(an empty object) and build it up with the editing API (see
+[Editing](#editing)):
+
+```python
+d = doc()                          # empty object
+d.add("name", "Ann")
+tags = d.add_array("tags")         # add an empty array, get a cursor to it
+tags.append("x")
+tags.append("y")
+
+d.to_data()                        # {"name": "Ann", "tags": ["x", "y"]}
+```
+
+This is the same `Doc` you'd get from `doc({"name": "Ann", "tags": ["x", "y"]})`
+or `Doc.from_json('{"name": "Ann", "tags": ["x", "y"]}')` — three different
+starting points, one guarded result.
+
 ## Navigating
 
 You move **one level at a time** — there are no deep paths, which keeps
