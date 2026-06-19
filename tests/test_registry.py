@@ -4,8 +4,10 @@ import pytest
 from dataspec import (
     Doc,
     Format,
+    WriteError,
     WriteReport,
     doc,
+    finish_write,
     formats,
     get_format,
     register_format,
@@ -48,3 +50,27 @@ class TestPluginFormat:
         # to_format on an unknown name surfaces the registry error
         with pytest.raises(KeyError):
             doc({"a": 1}).to_format("nope")
+
+
+class TestFinishWrite:
+    def test_lenient_returns_text_regardless_of_adjustments(self):
+        rep = WriteReport()
+        rep.add("$.a", "some.code", "adjusted", "warning")
+        assert finish_write("text", rep) == "text"
+
+    def test_report_collects_adjustments_without_raising(self):
+        rep = WriteReport()
+        rep.add("$.a", "some.code", "adjusted", "error")
+        collected = WriteReport()
+        assert finish_write("text", rep, report=collected) == "text"
+        assert collected.adjustments == rep.adjustments
+
+    def test_strict_raises_on_any_adjustment_regardless_of_severity(self):
+        rep = WriteReport()
+        rep.add("$.a", "some.code", "adjusted", "warning")
+        with pytest.raises(WriteError) as exc_info:
+            finish_write("text", rep, strict=True)
+        assert exc_info.value.report is rep
+
+    def test_strict_passes_through_when_no_adjustments(self):
+        assert finish_write("text", WriteReport(), strict=True) == "text"

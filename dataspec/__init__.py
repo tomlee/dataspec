@@ -56,7 +56,7 @@ from .formats import (
     write_yaml,
 )
 from .infer import infer
-from .report import Adjustment, WriteReport
+from .report import Adjustment, WriteReport, finish_write
 from .schema import (
     BOOLEAN,
     DATE,
@@ -82,7 +82,7 @@ __all__ = [
     "DataspecError", "SchemaError", "ParseError", "WriteError", "DocumentError",
     "DetachedNode",
     # serialization reports
-    "WriteReport", "Adjustment",
+    "WriteReport", "Adjustment", "finish_write",
     # document (data DOM)
     "Doc", "doc",
     # schema model

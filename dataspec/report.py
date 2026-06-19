@@ -25,7 +25,9 @@ Each adjustment has a ``severity``:
 
 from __future__ import annotations
 
-from typing import NamedTuple
+from typing import NamedTuple, Optional
+
+from .errors import WriteError
 
 
 class Adjustment(NamedTuple):
@@ -76,3 +78,28 @@ class WriteReport:
             return "no adjustments"
         return "\n".join(f"{a.severity}: {a.path}: {a.message}"
                          for a in self.adjustments)
+
+
+def finish_write(text: str, rep: WriteReport, *, strict: bool = False,
+                 report: Optional[WriteReport] = None) -> str:
+    """Apply the standard ``strict``/``report`` handling to a writer's result.
+
+    Every ``write_*`` follows the same shape: serialize, collect adjustments
+    into a :class:`WriteReport`, then decide what to do with them. Call this
+    at the end of your own ``write`` function instead of repeating that
+    decision yourself::
+
+        def write_csv(data, *, strict=False, report=None, **opts):
+            text, rep = _serialize_csv(data, **opts)
+            return finish_write(text, rep, strict=strict, report=report)
+
+    If ``report`` is given, ``rep``'s adjustments are merged into it. If
+    ``strict`` is true and ``rep`` has any adjustments (regardless of
+    severity), raises :class:`~dataspec.errors.WriteError` carrying ``rep``.
+    Otherwise returns ``text`` unchanged.
+    """
+    if report is not None:
+        report.extend(rep)
+    if strict and rep.adjustments:
+        raise WriteError(str(rep), report=rep)
+    return text
