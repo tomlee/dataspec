@@ -3,14 +3,16 @@
 
 Run: python3 examples/convert_formats.py
 """
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
     pass
 
-from dataspec import Doc, doc, check_toml, WriteReport, WriteError
+from dataspec import Doc, WriteError, WriteReport, check_toml, doc
 
 
 def main():

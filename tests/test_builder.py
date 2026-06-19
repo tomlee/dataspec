@@ -2,8 +2,21 @@
 import pytest
 
 from dataspec import (
-    schema, obj, arr, mapping, ref, enum, optional, nullable, t,
-    parse_schema, doc, SchemaError, ScalarType, INTEGER, STRING,
+    INTEGER,
+    STRING,
+    ScalarType,
+    SchemaError,
+    arr,
+    doc,
+    enum,
+    mapping,
+    nullable,
+    obj,
+    optional,
+    parse_schema,
+    ref,
+    schema,
+    t,
 )
 
 

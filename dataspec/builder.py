@@ -19,13 +19,28 @@ values — nothing new to learn on the read side.
 
 from __future__ import annotations
 
-from typing import Any, Optional as _Opt
+from typing import Any
+from typing import Optional as _Opt
 
 from .errors import SchemaError
 from .schema import (
-    Schema, Type, AnyType, ScalarType, ArrayType, ObjectType, Field, RefType,
-    STRING, INTEGER, NUMBER, BOOLEAN, DATE, TIME, DATETIME,
+    BOOLEAN,
+    DATE,
+    DATETIME,
+    INTEGER,
+    NUMBER,
+    STRING,
+    TIME,
+    AnyType,
+    ArrayType,
+    Field,
+    ObjectType,
+    RefType,
+    ScalarType,
+    Schema,
+    Type,
 )
+
 
 # -- type atoms, namespaced under `t` to avoid shadowing builtins/stdlib --
 class _Types:

@@ -1,7 +1,7 @@
 """infer, equivalent, compatible_with, normalize."""
 import pytest
 
-from dataspec import parse_schema, infer, read_json, doc, Doc
+from dataspec import Doc, doc, infer, parse_schema, read_json
 
 
 # ------------------------------------------------------------- infer

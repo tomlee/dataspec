@@ -26,7 +26,7 @@ import copy as _copy
 import datetime as _dt
 from typing import Any, Iterator, List, Optional, Tuple
 
-from .errors import DocumentError, DetachedNode
+from .errors import DetachedNode, DocumentError
 
 _MISSING = object()
 

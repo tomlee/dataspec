@@ -3,7 +3,6 @@ import pytest
 
 from dataspec import parse_schema, to_dsl
 
-
 CASES = [
     "root string",
     "root string?",

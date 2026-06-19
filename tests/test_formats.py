@@ -5,9 +5,21 @@ import json
 import pytest
 
 from dataspec import (
-    read_json, write_json, check_json, read_yaml, write_yaml, check_yaml,
-    read_toml, write_toml, check_toml, read_xml, write_xml, check_xml,
-    WriteError, ParseError, WriteReport,
+    ParseError,
+    WriteError,
+    WriteReport,
+    check_json,
+    check_toml,
+    check_xml,
+    check_yaml,
+    read_json,
+    read_toml,
+    read_xml,
+    read_yaml,
+    write_json,
+    write_toml,
+    write_xml,
+    write_yaml,
 )
 
 yaml = pytest.importorskip("yaml")

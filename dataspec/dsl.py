@@ -24,12 +24,25 @@ Forms:
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from .errors import SchemaError
 from .schema import (
-    Schema, Type, AnyType, ScalarType, ArrayType, ObjectType, Field, RefType,
-    STRING, INTEGER, NUMBER, BOOLEAN, DATE, TIME, DATETIME, SCALAR_KINDS,
+    BOOLEAN,
+    DATE,
+    DATETIME,
+    INTEGER,
+    NUMBER,
+    STRING,
+    TIME,
+    AnyType,
+    ArrayType,
+    Field,
+    ObjectType,
+    RefType,
+    ScalarType,
+    Schema,
+    Type,
 )
 
 _KEYWORD_KIND = {

@@ -43,7 +43,6 @@ from typing import Any, Optional, Tuple
 from .errors import ParseError, WriteError
 from .report import WriteReport
 
-
 # ===========================================================================
 # JSON
 # ===========================================================================
@@ -451,8 +450,11 @@ def _name(v: Any) -> str:
 # Registry — register the four built-in formats as plugins
 # ===========================================================================
 
-from .registry import (  # noqa: E402  (kept at the bottom to avoid import cycles)
-    Format, register_format, get_format, formats,
+from .registry import (  # noqa: E402,F401  (kept at the bottom to avoid import cycles; get_format/formats re-exported)
+    Format,
+    formats,
+    get_format,
+    register_format,
 )
 
 register_format(Format("json", read_json, write_json, check_json, (".json",)))
