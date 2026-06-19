@@ -283,9 +283,9 @@ def _serialize_xml(data: Any, *, root: str, null_style: str,
         rep.add("$", "null.toplevel.empty",
                 "top-level null written as an empty element", "error")
         body = {}
-    if isinstance(body, list):
+    if not isinstance(body, dict):
         rep.add("$", "toplevel.wrapped",
-                f"top-level array wrapped under {wrap_key!r} "
+                f"top-level {_name(body)} wrapped under {wrap_key!r} "
                 "(XML needs a top-level element)", "warning")
         body = {wrap_key: body}
     import xml.etree.ElementTree as ET
@@ -332,10 +332,9 @@ def _data_to_xml(data: Any, parent, path: str, rep: WriteReport) -> None:
     elif isinstance(data, list):
         # A list reaching a scalar position (e.g. nested array): wrap each item
         # in a synthetic <item> element.  Not unambiguously reversible.
+        # Report is added by _xml_child, not here, to avoid double-counting.
         for i, item in enumerate(data):
             child = ET.SubElement(parent, "item")
-            rep.add(f"{path}[{i}]", "array.nested.ambiguous",
-                    "nested array wrapped in <item> elements", "error")
             _xml_child(item, child, f"{path}[{i}]", rep)
     else:
         parent.text = _xml_text(data, path, rep)

@@ -214,3 +214,161 @@ class TestReports:
     def test_xml_nested_array_is_error(self):
         rep = check_xml({"grid": [[1, 2], [3, 4]]}, root="r")
         assert any(a.code == "array.nested.ambiguous" for a in rep.errors)
+
+
+# ------------------------------------------------- check_json / write_json reports
+class TestJsonReports:
+    def test_clean_doc_has_empty_report(self):
+        rep = check_json({"a": 1, "b": "x", "c": True, "d": None})
+        assert rep.adjustments == []
+        assert bool(rep) is True
+
+    def test_temporal_date_is_warning(self):
+        rep = check_json({"d": datetime.date(2024, 1, 1)})
+        assert len(rep.adjustments) == 1
+        assert rep.adjustments[0].code == "temporal.stringified"
+        assert rep.adjustments[0].severity == "warning"
+        assert bool(rep) is True
+
+    def test_temporal_time_is_warning(self):
+        rep = check_json({"t": datetime.time(9, 30)})
+        assert rep.adjustments[0].code == "temporal.stringified"
+
+    def test_temporal_datetime_is_warning(self):
+        rep = check_json({"dt": datetime.datetime(2024, 1, 1, 12, 0)})
+        assert rep.adjustments[0].code == "temporal.stringified"
+
+    def test_nan_is_error(self):
+        rep = check_json({"x": float("nan")})
+        assert rep.adjustments[0].code == "float.special"
+        assert rep.adjustments[0].severity == "error"
+        assert bool(rep) is False
+
+    def test_infinity_is_error(self):
+        rep = check_json({"x": float("inf")})
+        assert rep.adjustments[0].code == "float.special"
+        assert bool(rep) is False
+
+    def test_nested_temporal_path(self):
+        rep = check_json({"meta": {"created": datetime.date(2024, 1, 1)}})
+        assert rep.adjustments[0].path == "$.meta.created"
+
+    def test_temporal_in_array(self):
+        rep = check_json({"dates": [datetime.date(2024, 1, 1), datetime.date(2024, 1, 2)]})
+        codes = [a.code for a in rep]
+        assert codes == ["temporal.stringified", "temporal.stringified"]
+        assert rep.adjustments[0].path == "$.dates[0]"
+
+    def test_report_arg_collects_from_write_json(self):
+        rep = WriteReport()
+        out = write_json({"d": datetime.date(2024, 6, 1)}, report=rep)
+        assert json.loads(out)["d"] == "2024-06-01"
+        assert rep.adjustments[0].code == "temporal.stringified"
+
+    def test_strict_raises_on_temporal(self):
+        with pytest.raises(WriteError):
+            write_json({"d": datetime.date(2024, 1, 1)}, strict=True)
+
+    def test_strict_raises_on_nan(self):
+        with pytest.raises(WriteError):
+            write_json({"x": float("nan")}, strict=True)
+
+    def test_strict_clean_doc_does_not_raise(self):
+        out = write_json({"a": 1}, strict=True)
+        assert json.loads(out) == {"a": 1}
+
+
+# ------------------------------------------------- check_yaml / write_yaml reports
+class TestYamlReports:
+    def test_clean_doc_has_empty_report(self):
+        rep = check_yaml({"a": 1, "b": None, "c": True})
+        assert rep.adjustments == []
+        assert bool(rep) is True
+
+    def test_date_and_datetime_are_native_no_adjustment(self):
+        # YAML carries dates/datetimes natively — no adjustment needed
+        rep = check_yaml({
+            "d": datetime.date(2024, 1, 1),
+            "dt": datetime.datetime(2024, 1, 1, 12, 0),
+        })
+        assert rep.adjustments == []
+
+    def test_time_downgrades_to_string(self):
+        rep = check_yaml({"t": datetime.time(9, 30)})
+        assert len(rep.adjustments) == 1
+        assert rep.adjustments[0].code == "temporal.stringified"
+        assert rep.adjustments[0].severity == "warning"
+        assert bool(rep) is True
+
+    def test_time_path_is_correct(self):
+        rep = check_yaml({"schedule": {"start": datetime.time(8, 0)}})
+        assert rep.adjustments[0].path == "$.schedule.start"
+
+    def test_time_in_array(self):
+        rep = check_yaml({"times": [datetime.time(9, 0), datetime.time(10, 0)]})
+        assert len(rep.adjustments) == 2
+        assert rep.adjustments[0].path == "$.times[0]"
+
+    def test_report_arg_collects_from_write_yaml(self):
+        rep = WriteReport()
+        out = write_yaml({"t": datetime.time(9, 30)}, report=rep)
+        assert "09:30:00" in out
+        assert rep.adjustments[0].code == "temporal.stringified"
+
+    def test_strict_raises_on_time(self):
+        with pytest.raises(WriteError):
+            write_yaml({"t": datetime.time(9, 30)}, strict=True)
+
+    def test_strict_clean_doc_does_not_raise(self):
+        out = write_yaml({"a": 1, "b": None})
+        assert "a: 1" in out
+
+
+# ------------------------------------------ XML-specific report coverage
+class TestXmlReports:
+    def test_nested_array_single_report_per_item(self):
+        # regression: the double-report bug produced two entries per item
+        rep = check_xml({"grid": [[1, 2], [3, 4]]}, root="r")
+        nested = [a for a in rep if a.code == "array.nested.ambiguous"]
+        # two rows -> two entries, not four
+        assert len(nested) == 2
+
+    def test_top_level_scalar_wrapped(self):
+        rep = WriteReport()
+        out = write_xml(42, report=rep)
+        assert [a.code for a in rep] == ["toplevel.wrapped"]
+        assert rep.warnings  # wrapping is a warning, not an error
+        assert "<value>42</value>" in out
+
+    def test_top_level_null_is_error(self):
+        rep = check_xml(None)
+        assert any(a.code == "null.toplevel.empty" for a in rep.errors)
+        assert bool(rep) is False
+
+    def test_temporal_in_xml_is_warning(self):
+        rep = check_xml({"d": datetime.date(2024, 1, 1)}, root="r")
+        assert rep.adjustments[0].code == "temporal.stringified"
+        assert rep.adjustments[0].severity == "warning"
+
+    def test_null_style_drop_in_xml(self):
+        rep = check_xml({"xs": [1, None, 2]}, root="r", null_style="drop")
+        assert rep.errors == []
+        assert [a.code for a in rep.warnings] == ["null.item.dropped"]
+
+    def test_strict_raises_on_temporal(self):
+        with pytest.raises(WriteError):
+            write_xml({"d": datetime.date(2024, 1, 1)}, root="r", strict=True)
+
+    def test_report_str_lists_adjustments(self):
+        rep = check_toml({"a": None, "xs": [1, None]})
+        text = str(rep)
+        assert "null object field omitted" in text
+        assert "null array item dropped" in text
+        assert "warning" in text
+        assert "error" in text
+
+    def test_write_error_carries_report(self):
+        with pytest.raises(WriteError) as ei:
+            write_xml({"d": datetime.date(2024, 1, 1)}, root="r", strict=True)
+        assert ei.value.report is not None
+        assert ei.value.report.adjustments
