@@ -170,7 +170,10 @@ Doc.from_format("lines", "1 2 3").to_data()      # [1, 2, 3]
 
 The four built-ins (`json`, `yaml`, `toml`, `xml`) register themselves on import;
 `formats()` lists what's available. See the
-[API reference](../api.md#format-registry).
+[API reference](../api.md#format-registry), and
+[Writing a format plugin](../plugins.md) for the full guide — the adjustment-
+report contract, a worked example with `strict`/`check`, and a testing
+checklist.
 
 ## Per-format pages
 
