@@ -7,20 +7,20 @@ are thin conveniences over lower ones — there is one source of truth for data
 ## Layers
 
 ```
-            ┌──────────────────────────────────────────────┐
+            ┌───────────────────────────────────────────────┐
    object   │  Doc  (data DOM)        Schema builder (obj…) │   high-level,
    layer    │  build / navigate / edit / validate / emit    │   ergonomic
-            └───────────────┬───────────────────┬──────────┘
+            └───────────────┬───────────────────┬───────────┘
                             │                   │
-            ┌───────────────┴───────────────────┴──────────┐
+            ┌───────────────┴───────────────────┴───────────┐
    core     │  Document (plain Python)     Schema (types)   │   the two
    model    │                              validate / infer │   source models
             └───────────────┬───────────────────────────────┘
                             │
-            ┌───────────────┴──────────────────────────────┐
+            ┌───────────────┴───────────────────────────────┐
    codec    │  Format registry:  json · yaml · toml · xml   │   pluggable
    layer    │  read_* / write_* / check_*  (plain Python)   │   serialization
-            └──────────────────────────────────────────────┘
+            └───────────────────────────────────────────────┘
 ```
 
 - **Codec layer** — the functional `read_*` / `write_*` / `check_*` functions

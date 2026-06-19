@@ -4,12 +4,12 @@ A **Document** is a tree of objects, arrays, and scalars, held by a :class:`Doc`
 A **Schema** describes the shape a Document should have. Read a format into a
 Doc, validate it against a Schema, and write it back out to any format.
 
-    from dataspec import Doc, obj, string, arr, schema
+    from dataspec import Doc, obj, arr, schema, t
 
     d = Doc.from_json('{"name": "Ann", "tags": ["x", "y"]}')
     d.to_toml()                                   # transcode JSON -> TOML
 
-    s = schema(obj(name=string, tags=arr(string)))
+    s = schema(obj(name=t.string, tags=arr(t.string)))
     s.validate(d).ok                              # True
 
 The low-level functional codecs (``read_json`` / ``write_toml`` / …) operate on
