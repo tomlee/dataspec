@@ -1,4 +1,6 @@
 """DSL parse + serialize round-trip."""
+import re
+
 import pytest
 
 from dataspec import SchemaError, parse_schema, to_dsl
@@ -45,4 +47,37 @@ def test_reject_excessive_nesting():
     # not crash the process with an uncatchable RecursionError.
     text = "root " + "[" * 10_000 + "string" + "]" * 10_000
     with pytest.raises(SchemaError, match="maximum depth"):
+        parse_schema(text)
+
+
+# Malformed DSL text, one case per error the hand-written parser can raise.
+# A parser's error path is as much its contract as its happy path, so each
+# of these pins both that SchemaError (not some other exception) is raised
+# and that the message stays recognizable if the parser is ever refactored.
+BAD_CASES = [
+    ("unterminated string", 'root "abc', "unterminated string"),
+    ("unexpected character", "root @", "unexpected character"),
+    ("missing closing brace", "root { name: string", "expected '}'"),
+    ("missing type name", "type = string\nroot string", "expected type name"),
+    ("duplicate type", "type Point = string\ntype Point = integer\nroot Point",
+     "duplicate type"),
+    ("multiple root declarations", "root string\nroot integer",
+     "multiple 'root'"),
+    ("bad top-level keyword", "foo string", "expected 'type' or 'root'"),
+    ("no root declaration", "type Point = string", "no 'root'"),
+    ("unexpected token", "root ?", "unexpected token"),
+    ("map key must be string", "root { [integer]: string }",
+     "map key type must be 'string'"),
+    ("missing field name", "root { : string }", "expected field name"),
+    ("empty arity", "root [string]{}", "empty arity"),
+    ("union of structural types", "root { a: string } | { b: integer }",
+     "union of structural types is not supported"),
+    ("unknown type reference", "root Undefined", "unknown type"),
+]
+
+
+@pytest.mark.parametrize("text,expected", [(c[1], c[2]) for c in BAD_CASES],
+                        ids=[c[0] for c in BAD_CASES])
+def test_malformed_dsl_raises_schema_error(text, expected):
+    with pytest.raises(SchemaError, match=re.escape(expected)):
         parse_schema(text)
