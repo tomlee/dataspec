@@ -9,30 +9,82 @@ The point of going through `Doc` rather than poking at raw dicts and lists is
 **safety**: every value you put in is checked against the Document model and
 copied in, so the structure can never drift into something unserializable.
 
-## Creating a Doc
+Every example on this page builds the same document — a user profile, three
+layers deep (object → object → object):
 
 ```python
-from dataspec import Doc, doc
-
-doc()                                  # an empty object
-doc({"name": "Ann", "tags": ["x"]})    # import a Python value (validated, copied)
-doc([1, 2, 3])                         # an array document
-doc(42)                                # a scalar document
-
-Doc.from_json('{"a": 1}')              # import from a format string
-Doc.from_yaml(text); Doc.from_toml(text); Doc.from_xml(text)
-Doc.from_format("json", text)          # generic (works for plugin formats too)
+{"name": "Ann", "address": {"city": "HK", "geo": {"lat": 22.3, "lon": 114.2}}}
 ```
+
+## Creating a Doc
+
+There's no single "right" way to get one — pick whichever starting point
+matches what you have.
+
+**From a Python value:**
+
+```python
+from dataspec import doc
+
+d = doc({"name": "Ann", "address": {"city": "HK", "geo": {"lat": 22.3, "lon": 114.2}}})
+```
+
+**From a format string** — one `from_*` per built-in format, plus a generic
+form that also works for plugin formats ([Formats](formats/overview.md)):
+
+```python
+from dataspec import Doc
+
+Doc.from_json('{"name": "Ann", "address": {"city": "HK", "geo": {"lat": 22.3, "lon": 114.2}}}')
+
+Doc.from_yaml("""
+name: Ann
+address:
+  city: HK
+  geo:
+    lat: 22.3
+    lon: 114.2
+""")
+
+Doc.from_toml("""
+name = "Ann"
+
+[address]
+city = "HK"
+
+[address.geo]
+lat = 22.3
+lon = 114.2
+""")
+
+Doc.from_xml("""
+<root>
+  <name>Ann</name>
+  <address>
+    <city>HK</city>
+    <geo>
+      <lat>22.3</lat>
+      <lon>114.2</lon>
+    </geo>
+  </address>
+</root>
+""")
+
+Doc.from_format("json", text)   # generic: name the format by string
+```
+
+All four produce the identical `Doc`. The XML wrapper element name (`root`
+above) is arbitrary — `from_xml` doesn't care what it's called, it just reads
+the outer element's children; use whatever name fits your data (e.g.
+`Doc.from_xml(text)` paired with `d.to_xml(root="profile")`, see
+[Serializing](#serializing)).
 
 `doc(value)` and `Doc.from_data(value)` are the same thing. Tuples are accepted
 and become lists; anything outside the Document model raises `DocumentError`
 (see [The guard](#the-guard)).
 
-### Building one piece at a time
-
-You don't need an existing value or format string at all — start from `doc()`
-(an empty object) and build it up with the editing API (see
-[Editing](#editing)):
+**With the builder, one piece at a time** — start from `doc()` (an empty
+object) and build it up with the editing API (see [Editing](#editing)):
 
 ```python
 d = doc()                          # empty object
@@ -41,19 +93,16 @@ d.add("name", "Ann")
 address = d.add_object("address")  # add an empty object, get a cursor to it
 address.add("city", "HK")
 
-items = d.add_array("items")       # add an empty array, get a cursor to it
-item = items.append_object()       # append an object, get a cursor to it
-item.add("id", 1)
+geo = address.add_object("geo")    # nest another object inside it
+geo.add("lat", 22.3)
+geo.add("lon", 114.2)
 
-d.to_data()                        # {"name": "Ann",
-                                    #  "address": {"city": "HK"},
-                                    #  "items": [{"id": 1}]}
+d.to_data()
+# {"name": "Ann", "address": {"city": "HK", "geo": {"lat": 22.3, "lon": 114.2}}}
 ```
 
-This is the same `Doc` you'd get from
-`doc({"name": "Ann", "address": {"city": "HK"}, "items": [{"id": 1}]})` or the
-equivalent JSON via `Doc.from_json(...)` — three different starting points, one
-guarded result.
+Four different starting points — a Python value, four formats, and the
+builder — one guarded result.
 
 ## Navigating
 
@@ -61,18 +110,25 @@ You move **one level at a time** — there are no deep paths, which keeps
 navigation unambiguous even when repeated keys have produced arrays.
 
 ```python
-d = doc({"name": "Ann", "address": {"city": "HK"}, "items": [{"id": 1}]})
+d = doc({"name": "Ann", "address": {"city": "HK", "geo": {"lat": 22.3, "lon": 114.2}}})
 
-d.kind                      # "object" | "array" | "scalar"
-d.keys()                    # ["name", "address", "items"]
-d.has("name")               # True
-d.get("name")               # "Ann"           (scalar value)
-d.get("address")            # {"city": "HK"}   (a detached snapshot copy)
-d.get_or("missing", None)   # default if absent
+d.kind                          # "object"
+d.keys()                        # ["name", "address"]
+d.has("name")                   # True
+d.has("missing")                # False
+d.get("name")                   # "Ann"
+d.get("address")                # {"city": "HK", "geo": {...}}   (a detached snapshot copy)
+d.get_or("missing", "n/a")      # "n/a" — default if absent
 
-d.child("address")          # a live cursor into the object
-d.child("address").get("city")          # "HK"
-d.child("items").child_at(0).get("id")  # 1
+address = d.child("address")    # a live cursor into the object
+address.path                    # "$.address"
+address.get("city")             # "HK"
+
+geo = address.child("geo")      # navigate one more level
+geo.path                        # "$.address.geo"
+geo.get("lat")                  # 22.3
+
+d.child("address").child("geo").get("lat")   # 22.3 — chaining is just repeated child()
 ```
 
 Two getters, by intent:
@@ -84,8 +140,8 @@ Two getters, by intent:
   navigate and edit further. They error on a scalar (you can't navigate into a
   value — use `get`/`at`).
 
-A cursor knows where it is: `.parent`, `.key`, and `.path` (e.g. `"$.items[0]"`,
-the same path style as validation errors).
+A cursor knows where it is: `.parent`, `.key`, and `.path` (e.g.
+`"$.address.geo"`, the same path style as validation errors).
 
 ## Editing
 
@@ -93,14 +149,18 @@ Mutation happens on the node you hold, one level at a time. Three verbs with
 sharp, non-overlapping jobs:
 
 ```python
+d = doc({"name": "Ann", "address": {"city": "HK"}})
+
 d.add("age", 30)                 # create a new child (key must not exist)
 d.set("age", 31)                 # modify an existing scalar leaf, in place
 d.remove("age")                  # delete the whole subtree at a key
 
-o = d.add_object("address")      # add an empty object, return a cursor to it
-o.add("city", "HK")
-a = d.add_array("tags")          # add an empty array, return a cursor
-a.append("x"); a.append("y")
+address = d.child("address")
+geo = address.add_object("geo")  # add an empty object, return a cursor to it
+geo.add("lat", 22.3)
+
+tags = d.add_array("tags")       # add an empty array, return a cursor
+tags.append("vip"); tags.append("east")
 ```
 
 - **`add`** introduces a new child; the key must not already exist. The value can
@@ -130,7 +190,12 @@ d.child("address").drop()        # detach this node from its parent
 Python copy.
 
 ```python
-d.to_json(indent=2); d.to_yaml(); d.to_toml(); d.to_xml(root="record")
+d = doc({"name": "Ann", "address": {"city": "HK", "geo": {"lat": 22.3, "lon": 114.2}}})
+
+d.to_json(indent=2)
+d.to_yaml()
+d.to_toml()
+d.to_xml(root="profile")         # root names the wrapper element (your choice)
 d.to_format("json")              # generic, for plugin formats
 d.to_data()                      # a detached deep copy as plain Python
 ```
@@ -156,10 +221,10 @@ Errors carry the path to the offender (`"$.a.b[1]: ..."`). Copy-in also means
 outside references can't corrupt the document after the fact:
 
 ```python
-src = {"xs": [1, 2]}
+src = {"address": {"city": "HK"}}
 d = doc(src)
-src["xs"].append(99)     # mutate the original
-d.get("xs")              # [1, 2] — the Doc is unaffected
+src["address"]["city"] = "Shenzhen"   # mutate the original
+d.get("address")                      # {"city": "HK"} — the Doc is unaffected
 ```
 
 The guard checks **structure only** — that this is a legal Document. Whether it
@@ -168,14 +233,35 @@ matches an *expected shape* is a separate question, answered by a
 
 ## Dunders
 
-`Doc` behaves like the container it wraps where it's unambiguous:
+`Doc` behaves like the container it wraps where it's unambiguous — same
+profile document, showing exactly what each one does and returns:
 
 ```python
-len(d)                   # number of keys / elements
-for k in d: ...          # objects iterate keys; arrays iterate element snapshots
-"name" in d              # membership (keys for objects, values for arrays)
-doc({"a": 1}) == {"a": 1}   # compares by data (against a Doc or plain value)
+d = doc({"name": "Ann", "address": {"city": "HK", "geo": {"lat": 22.3, "lon": 114.2}}})
+
+len(d)                       # 2 — number of top-level keys (object) / elements (array)
+list(d)                      # ["name", "address"] — objects iterate over keys
+"name" in d                  # True — membership: keys for objects, values for arrays
+"missing" in d                # False
+d == {"name": "Ann", "address": {"city": "HK", "geo": {"lat": 22.3, "lon": 114.2}}}
+                              # True — compares by data, against a Doc or a plain value
+repr(d)                       # "Doc(object: {'name': 'Ann', 'address': {...}})"
 ```
+
+An array `Doc` iterates and measures its *elements*, not keys:
+
+```python
+tags = doc(["vip", "east"])
+
+len(tags)                     # 2
+list(tags)                    # ["vip", "east"] — arrays iterate element snapshots
+"vip" in tags                 # True — membership checks values, not indices
+tags == ["vip", "east"]       # True
+```
+
+A scalar `Doc` has no keys or elements: `len(s)` and `iter(s)` raise
+`DocumentError` (there's nothing to count or iterate), while `x in s` quietly
+returns `False` rather than erroring. Read a scalar's value with `.value`.
 
 ## Quick reference
 
@@ -188,3 +274,4 @@ doc({"a": 1}) == {"a": 1}   # compares by data (against a Doc or plain value)
 | modify leaf | `set(k, scalar)` | `set(i, scalar)` | (via parent) |
 | delete | `remove(k)`, child `.drop()` | `remove(i)` | — |
 | emit | `to_json/yaml/toml/xml`, `to_format`, `to_data` | … | … |
+| dunders | `len`, `iter` (keys), `in` (keys), `==` | `len`, `iter` (values), `in` (values), `==` | `==` only; `len`/`iter` raise, `in` is always `False` |
