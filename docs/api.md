@@ -3,8 +3,35 @@
 Everything below is importable directly from `dataspec`:
 
 ```python
-from dataspec import read_json, parse_schema, infer, WriteError   # etc.
+from dataspec import Doc, doc, obj, parse_schema, infer, WriteError   # etc.
 ```
+
+## Documents — the `Doc` API
+
+A `Doc` is a guarded, navigable Document tree (see [Documents](document.md) for
+the full guide). Build with `doc(...)` / `Doc.from_*`; everything else is methods.
+
+| Member | Description |
+|---|---|
+| `doc(value=…)` | factory: empty object, or import a Python value (validated, copied) |
+| `Doc.from_data(value)` | same as `doc(value)` |
+| `Doc.from_json/from_yaml/from_toml/from_xml(text)` | import from a format string |
+| `Doc.from_format(name, text)` | import via a registered format (incl. plugins) |
+| `.kind` | `"object"` / `"array"` / `"scalar"` |
+| `.parent`, `.key`, `.path`, `.value` | cursor position; scalar value |
+| `.get(k)` / `.get_or(k, d)` / `.at(i)` | read a snapshot (copy for containers) |
+| `.child(k)` / `.child_at(i)` | a live cursor into a sub-object/array |
+| `.has(k)` / `.keys()` / `.items()` / `.len()` | inspect |
+| `.add(k, v)` / `.add_object(k)` / `.add_array(k)` | create a new child |
+| `.append(v)` / `.append_object()` / `.append_array()` / `.insert(i, v)` | array growth |
+| `.set(k, scalar)` | modify an existing scalar leaf in place |
+| `.remove(k)` / `.drop()` | delete a subtree / remove self from parent |
+| `.to_json/to_yaml/to_toml/to_xml(**opts)` / `.to_format(name, **opts)` | serialize |
+| `.to_data()` | a detached deep copy as plain Python |
+| `len(d)`, `iter(d)`, `k in d`, `==` | container-like dunders |
+
+Illegal values (non-string keys, unsupported types, cycles) raise
+`DocumentError`. `set` only modifies a scalar — reshaping is `remove` + `add`.
 
 ## Reading and writing formats
 
@@ -75,10 +102,35 @@ Documents. See [Inferring schemas](infer.md).
 A `NamedTuple` with `.path` (e.g. `$.items[0].id`) and `.message`. It also
 unpacks as `(path, message)`.
 
+## Schema builder
+
+The ergonomic way to build a schema in Python (see
+[Schemas](schema.md#the-python-builder)). All importable from `dataspec`.
+
+| Name | Builds |
+|---|---|
+| `string`, `integer`, `number`, `boolean`, `date`, `time`, `datetime` | scalar singletons |
+| `any` | `AnyType()` |
+| `obj(**fields)` | a closed object; values are a type or `optional(type)` |
+| `optional(t)` | marks a field not-required (inside `obj`) |
+| `nullable(t)` | a copy of `t` that also accepts null |
+| `arr(item, min=0, max=None)` | an array type |
+| `mapping(value_type)` | a map `{[string]: T}` |
+| `enum(*values)` | a scalar restricted to literal values |
+| `ref(name)` | a named-type reference |
+| `schema(root, **named_types) -> Schema` | assemble (and check refs) |
+
+```python
+from dataspec import schema, obj, arr, string, integer, optional, doc
+
+s = schema(obj(name=string, age=optional(integer), tags=arr(string)))
+s.validate(doc({"name": "Ann", "tags": ["x"]})).ok        # True
+```
+
 ## Schema types
 
-For building schemas in code instead of with the text language. All are
-subclasses of `Type`, and any type accepts `nullable=True`.
+The lower-level classes the builder and DSL produce. All are subclasses of
+`Type`, and any type accepts `nullable=True`.
 
 | Class | Constructor | Describes |
 |---|---|---|
@@ -96,15 +148,30 @@ rest=...)` is a convenience builder.
 The scalar **kind constants** are `STRING`, `INTEGER`, `NUMBER`, `BOOLEAN`,
 `DATE`, `TIME`, `DATETIME`.
 
+`ObjectType` and `ArrayType` also have uniform child getters: `obj.field(name)`,
+`obj.children()`, `obj.field_names()`, `arr.children()`, plus the `obj.rest` /
+`arr.item` attributes.
+
 ```python
-from dataspec import Schema, ObjectType, ScalarType, Field, STRING, INTEGER
+from dataspec import Schema, ObjectType, ScalarType, Field, STRING, INTEGER, doc
 
 schema = Schema(ObjectType({
     "name": Field(ScalarType({STRING}), required=True),
     "age":  Field(ScalarType({INTEGER}), required=False),
 }))
-schema.validate({"name": "Ann"}).ok        # True
+schema.validate(doc({"name": "Ann"})).ok        # True
 ```
+
+## Format registry
+
+Formats are pluggable (see [Formats](formats/overview.md#extending-with-a-new-format)).
+
+| Name | Description |
+|---|---|
+| `Format(name, read, write, check, extensions=(), requires=())` | a format plugin |
+| `register_format(fmt)` | add/replace a format |
+| `get_format(name) -> Format` | look up (raises `KeyError` if unknown) |
+| `formats() -> list[str]` | names of registered formats |
 
 ## Exceptions
 
@@ -115,4 +182,5 @@ All inherit from `DataspecError`, so you can catch everything with one `except`.
 | `DataspecError` | base class |
 | `SchemaError` | a schema is invalid (bad DSL, unknown type reference) |
 | `ParseError` | a document can't be read (outside a format's supported profile) |
-| `WriteError` | a document can't be represented in the target format |
+| `WriteError` | a document can't be represented in a target format (`strict=True`); carries `.report` |
+| `DocumentError` | a value isn't a legal Document, or a `Doc` operation is invalid |

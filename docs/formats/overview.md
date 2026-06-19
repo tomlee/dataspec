@@ -11,8 +11,17 @@ from dataspec import read_json, write_toml
 write_toml(read_json('{"name": "Ann"}'))     # 'name = "Ann"\n'
 ```
 
+Or go through a [`Doc`](../document.md), which dispatches to the same codecs:
+
+```python
+from dataspec import Doc
+Doc.from_json('{"name": "Ann"}').to_toml()   # 'name = "Ann"\n'
+```
+
 Because they share one model, converting is just *read one, write another*. The
-only thing you have to know is what each format can and can't represent.
+only thing you have to know is what each format can and can't represent. The
+`Doc.to_*` methods take the same options (`strict`, `report`, `null_style`,
+`wrap_key`, `root`) as the `write_*` functions below.
 
 ## Conversion is lenient by default
 
@@ -137,6 +146,31 @@ XML is far more expressive than data needs to be, so dataspec supports a
 restricted **data-XML** profile: elements only, used purely to hold tree-shaped
 data. Attributes, mixed content, namespaces, and CDATA constructs are **not**
 part of the model. See [XML](xml.md) for the details and the rationale.
+
+## Extending with a new format
+
+Formats are plugins. Each is a `Format` with a name, file extensions, and three
+codec callables over plain Python — `read(text) -> Document`,
+`write(data, *, strict=False, report=None, **opts) -> str`, and
+`check(data, **opts) -> WriteReport`. Register one and it's usable everywhere,
+including `Doc.from_format` / `Doc.to_format`:
+
+```python
+from dataspec import Format, register_format, WriteReport, Doc
+
+register_format(Format(
+    name="lines", extensions=(".lines",),
+    read=lambda text: [int(x) for x in text.split()],
+    write=lambda data, **o: " ".join(map(str, data)),
+    check=lambda data, **o: WriteReport(),
+))
+
+Doc.from_format("lines", "1 2 3").to_data()      # [1, 2, 3]
+```
+
+The four built-ins (`json`, `yaml`, `toml`, `xml`) register themselves on import;
+`formats()` lists what's available. See the
+[API reference](../api.md#format-registry).
 
 ## Per-format pages
 

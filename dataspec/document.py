@@ -291,14 +291,14 @@ class Doc:
             target = _join(self.path, key)
             if _is_container(self._data[key]):
                 raise DocumentError(
-                    f"{target}: holds a {_kindof(self._data[key])}; "
+                    f"{target}: holds an {_kindof(self._data[key])}; "
                     "remove() then add() to replace a subtree")
             self._data[key] = _legalize(value, target)
         elif self.kind == "array":
             i = self._index(key)
             if _is_container(self._data[i]):
                 raise DocumentError(
-                    f"{self.path}[{i}]: holds a {_kindof(self._data[i])}; "
+                    f"{self.path}[{i}]: holds an {_kindof(self._data[i])}; "
                     "remove() then insert() to replace a subtree")
             self._data[i] = _legalize(value, f"{self.path}[{i}]")
         else:

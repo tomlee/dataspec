@@ -1,34 +1,31 @@
 # dataspec
 
-[![tests](https://img.shields.io/badge/tests-121%20passing-brightgreen)](tests/)
+[![tests](https://img.shields.io/badge/tests-224%20passing-brightgreen)](tests/)
 [![python](https://img.shields.io/badge/python-3.11%2B-blue)](#installation)
 [![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey)](LICENSE)
 [![status](https://img.shields.io/badge/status-alpha-orange)](#status)
 
-**One data model for JSON, YAML, TOML, and XML.** Read any of them into plain
-Python data, validate it against a schema, and write it back out to any of the
-others — and get a report of anything that had to change to fit.
+**One data model for JSON, YAML, TOML, and XML.** Import any of them into a
+single in-memory structure, build and edit it through a guarded API, validate it
+against a schema, and write it back out to any of the others.
 
 ```python
-from dataspec import read_json, write_toml, parse_schema
+from dataspec import Doc, obj, string, integer, arr, schema
 
-# Read one format, write another — they share one in-memory model.
-data = read_json('{"name": "Ann", "age": 30, "tags": ["x", "y"]}')
-print(write_toml(data))
+# Import one format; the same Document writes out to any other.
+d = Doc.from_json('{"name": "Ann", "age": 30, "tags": ["x", "y"]}')
+print(d.to_toml())
 # name = "Ann"
 # age = 30
 # tags = ["x", "y"]
 
-# Describe the shape you expect, then check data against it.
-schema = parse_schema("""
-    root {
-        name: string,
-        age:  integer,
-        tags: [string],
-    }
-""")
-print(schema.validate(data))            # valid
-print(schema.validate({"name": 1}))     # invalid:  at $.name: expected string, got integer ...
+# Navigate and edit through the API — never malformed.
+d.child("tags").append("z")
+d.add("active", True)
+
+# Describe the shape you expect, then check the Document against it.
+s = schema(obj(name=string, age=integer, tags=arr(string), active=string))
+print(s.validate(d))               # invalid:  at $.active: expected string, got boolean
 ```
 
 ## Why dataspec
@@ -40,13 +37,15 @@ and none of them validate.
 
 dataspec gives you **one** model and **one** set of operations:
 
-- **Read** JSON / YAML / TOML / XML into ordinary Python `dict`s, `list`s, and
-  scalars — no custom node objects to learn.
-- **Validate** that data against a schema written in a small, readable language,
-  and get back errors with exact paths like `$.items[0].id`.
-- **Convert** between formats by reading one and writing another.
-- **Infer** a schema from real examples, then refine it.
+- A **`Doc`** data structure — a format-neutral "data DOM" you build, navigate,
+  and edit through a guarded API, so it's always well-formed.
+- **Read / write** JSON, YAML, TOML, XML over that one structure (or use the
+  plain-Python `read_*` / `write_*` functions directly).
+- **Validate** a Document against a schema — written as text, built in Python, or
+  inferred from examples — with errors at exact paths like `$.items[0].id`.
+- **Convert** between formats by importing one and emitting another.
 - **Compare** two schemas to check whether a change is backward-compatible.
+- **Extend** with new formats: register a `Format` plugin and it's usable everywhere.
 
 Conversion is **lenient by default**: when a target format can't hold a value
 (for example, `null` in TOML), dataspec adjusts the data to fit and *records*
@@ -54,14 +53,13 @@ what it changed — it doesn't make you handle an error for the common case. Ask
 for the report when you care, or opt into a strict, lossless mode:
 
 ```python
-from dataspec import write_toml, check_toml
+from dataspec import doc
 
-write_toml({"a": 1, "b": None})        # 'a = 1\n'  — null field dropped
-check_toml({"xs": [1, None, 2]})       # a report flagging the dropped null
-write_toml(doc, strict=True)           # raise WriteError if anything is lossy
+doc({"a": 1, "b": None}).to_toml()             # 'a = 1\n'  — null field dropped
+doc({"xs": [1, None, 2]}).to_toml(strict=True) # raise WriteError if anything is lossy
 ```
 
-`check_*` simulates a write and returns the report without producing output;
+`check_*` simulates a write and returns a report without producing output;
 `strict=True` guarantees a lossless round-trip. See
 [Formats](docs/formats/overview.md) for the full model.
 
@@ -90,26 +88,32 @@ pip install defusedxml  # hardened XML parsing
 ## A 60-second tour
 
 ```python
-from dataspec import read_json, write_yaml, parse_schema, infer
+from dataspec import Doc, doc, infer
 
-doc = read_json('{"id": 1, "email": "a@x.io", "roles": ["admin"]}')
+d = Doc.from_json('{"id": 1, "email": "a@x.io", "roles": ["admin"]}')
 
-print(write_yaml(doc))                  # transcode JSON -> YAML
+print(d.to_yaml())                      # transcode JSON -> YAML
+d.child("roles").append("ops")          # edit through the API
 
-schema = infer([doc])                   # learn a schema from an example
-print(schema.to_dsl())                  # root { id: integer, email: string, roles: [string] }
-print(schema.validate(doc))             # valid
+s = infer([d])                          # learn a schema from an example
+print(s.to_dsl())                       # root { id: integer, email: string, roles: [string] }
+print(s.validate(d))                    # valid
 ```
 
 Run the full tour with `python3 examples/quickstart.py`.
 
 ## Documentation
 
-- **[Getting started](docs/getting-started.md)** — install, the core ideas, your
-  first read / validate / convert.
-- **[Schemas](docs/schema.md)** — the schema language, every type, with examples.
-- **[Formats](docs/formats/overview.md)** — what each format supports, its
-  limits, and a side-by-side comparison table.
+- **[Concepts](docs/concepts.md)** — the five ideas: Document, Schema, Object,
+  validation, conversion.
+- **[Architecture](docs/architecture.md)** — the layers, the OO structure, the
+  module map.
+- **[Getting started](docs/getting-started.md)** — install and your first
+  import / edit / validate / convert.
+- **[Documents](docs/document.md)** — the `Doc` API: build, navigate, edit, emit.
+- **[Schemas](docs/schema.md)** — the schema language *and* the Python builder.
+- **[Formats](docs/formats/overview.md)** — what each format supports, the
+  comparison table, and writing a format plugin.
   ([JSON](docs/formats/json.md) · [YAML](docs/formats/yaml.md) ·
   [TOML](docs/formats/toml.md) · [XML](docs/formats/xml.md))
 - **[Inferring schemas](docs/infer.md)** — learn a schema from examples.
@@ -122,7 +126,7 @@ Run the full tour with `python3 examples/quickstart.py`.
 
 ```bash
 pip install pytest pyyaml tomli_w defusedxml
-python3 -m pytest          # 108 tests
+python3 -m pytest          # 224 tests
 ```
 
 ## Status

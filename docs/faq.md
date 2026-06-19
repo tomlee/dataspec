@@ -1,17 +1,40 @@
 # FAQ
 
-### Do `read_*` functions take a file path or a string?
+### What's the difference between `Doc`, `read_*`, and a plain dict?
+
+A `Doc` is the guarded Document data structure — you build and edit it through an
+API so it's always well-formed, and serialize it with `d.to_json()` etc. The
+`read_*` / `write_*` functions are the lower-level functional codecs that work on
+plain Python (`read_json(text)` returns a `dict`/`list`). `Doc` is built on top of
+them: `Doc.from_json(text)` ≈ `doc(read_json(text))`, and `d.to_toml()` calls
+`write_toml(d.to_data())`. Use `Doc` when you want to navigate/edit/validate; use
+the functions for a quick one-shot transcode. See [Documents](document.md).
+
+### Why doesn't `validate` accept a plain dict anymore?
+
+Validation operates on a Document, so you import your data into a `Doc` first —
+`schema.validate(doc(my_dict))` or `schema.validate(Doc.from_json(text))`. The
+`doc(...)` step also checks the value is a well-formed Document, so by the time
+you validate against a schema, structural problems are already ruled out.
+
+### Do `Doc.from_*` and `read_*` take a file path or a string?
 
 A **string**. Read the file yourself and pass its text:
 
 ```python
 from pathlib import Path
-from dataspec import read_toml
-doc = read_toml(Path("config.toml").read_text())
+from dataspec import Doc
+d = Doc.from_toml(Path("config.toml").read_text())
 ```
 
 This keeps the API unambiguous and lets you read from anywhere — a file, a
 request body, a database column.
+
+### How do I add support for a format dataspec doesn't ship?
+
+Register a `Format` plugin with `read` / `write` / `check` callables; it's then
+usable everywhere, including `Doc.from_format(name, text)` and `d.to_format(name)`.
+See [Formats](formats/overview.md#extending-with-a-new-format).
 
 ### How do I find out if converting to TOML or XML lost anything?
 

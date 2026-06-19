@@ -1,16 +1,22 @@
 # Schemas
 
 A **schema** describes the shape a Document is allowed to have. You write one in
-a small text language, parse it with `parse_schema`, and call `validate` on it:
+a small text language, parse it with `parse_schema`, and call `validate` on a
+[`Doc`](document.md):
 
 ```python
-from dataspec import parse_schema
+from dataspec import parse_schema, doc
 
 schema = parse_schema("root { name: string, age: integer }")
-schema.validate({"name": "Ann", "age": 30}).ok    # True
+schema.validate(doc({"name": "Ann", "age": 30})).ok    # True
 ```
 
-This page defines every concept and every type, with examples.
+> Validation is **Doc-only** — wrap your data with `doc(...)` (or read it with
+> `Doc.from_json(...)`) first. The examples below assume `doc` is imported.
+
+You can also build the same schema in Python instead of as text — see
+[The Python builder](#the-python-builder). This page defines every concept and
+every type, with examples.
 
 ## Concepts
 
@@ -66,9 +72,9 @@ root {
 | `datetime` | a date and time |
 
 ```python
-parse_schema("root string").validate("hi").ok       # True
-parse_schema("root integer").validate(5).ok          # True
-parse_schema("root integer").validate(5.5).ok        # False (not whole)
+parse_schema("root string").validate(doc("hi")).ok       # True
+parse_schema("root integer").validate(doc(5)).ok          # True
+parse_schema("root integer").validate(doc(5.5)).ok        # False (not whole)
 ```
 
 A few deliberate rules:
@@ -159,10 +165,10 @@ root { id: string, ... }     # id is checked; any other keys are allowed
 
 ```python
 s = parse_schema("root { a: integer }")
-s.validate({"a": 1, "b": 2}).ok          # False — 'b' is unexpected
+s.validate(doc({"a": 1, "b": 2})).ok          # False — 'b' is unexpected
 
 s = parse_schema("root { a: integer, ... }")
-s.validate({"a": 1, "b": 2}).ok          # True
+s.validate(doc({"a": 1, "b": 2})).ok          # True
 ```
 
 ## Maps
@@ -177,8 +183,8 @@ root { [string]: integer }          # any string keys -> integer values
 
 ```python
 s = parse_schema("root { [string]: integer }")
-s.validate({"jan": 1, "feb": 2}).ok      # True
-s.validate({"jan": "x"}).ok              # False — values must be integers
+s.validate(doc({"jan": 1, "feb": 2})).ok      # True
+s.validate(doc({"jan": "x"})).ok              # False — values must be integers
 ```
 
 You can combine known fields with a map for the rest:
@@ -223,7 +229,7 @@ root Tree
 
 ```python
 s = parse_schema("type Tree = { value: integer, kids: [Tree] }\nroot Tree")
-s.validate({"value": 1, "kids": [{"value": 2, "kids": []}]}).ok   # True
+s.validate(doc({"value": 1, "kids": [{"value": 2, "kids": []}]})).ok   # True
 ```
 
 A reference to an undefined type is caught when you parse the schema:
@@ -244,7 +250,7 @@ parse_schema("root { a: Missing }")      # raises SchemaError: unknown type 'Mis
 - `print(result)` — a readable multi-line summary.
 
 ```python
-r = parse_schema("root { items: [{ id: integer }] }").validate({"items": [{"id": "x"}]})
+r = parse_schema("root { items: [{ id: integer }] }").validate(doc({"items": [{"id": "x"}]}))
 r.errors[0].path        # '$.items[0].id'
 r.errors[0].message     # 'expected integer, got string'
 ```
@@ -267,9 +273,56 @@ back an equivalent schema.
 - **Map keys are always strings.** That matches JSON/YAML/TOML/XML, where object
   keys are strings.
 
-## Building a schema in code
+## The Python builder
 
-You don't have to use the text language. The same types are available as
-classes if you'd rather build a schema programmatically — see the
-[API reference](api.md#schema-types). For most uses, the text language and
-`infer` are simpler.
+You don't have to use the text language. The builder constructs the *same* schema
+object tree from Python expressions — handy when a schema is generated or
+composed, where string concatenation would be awkward, and friendlier to IDEs and
+type checkers.
+
+```python
+from dataspec import (
+    schema, obj, arr, mapping, enum, optional, nullable, ref,
+    string, integer, number, boolean, date, time, datetime, any,
+)
+
+s = schema(obj(
+    name    = string,
+    age     = optional(integer),               # an optional field
+    status  = enum("open", "shipped"),         # a fixed set of values
+    tags    = arr(string),                      # an array
+    deleted = nullable(boolean),                # also accepts null
+    scores  = mapping(integer),                 # a map { [string]: integer }
+))
+```
+
+The vocabulary:
+
+| Builder | Produces | DSL equivalent |
+|---|---|---|
+| `string`, `integer`, `number`, `boolean`, `date`, `time`, `datetime` | a scalar type | the same keywords |
+| `any` | matches anything | `any` |
+| `obj(**fields)` | a closed object | `{ ... }` |
+| `optional(t)` | marks a field not-required | `name?: t` |
+| `nullable(t)` | a type that also accepts null | `t?` |
+| `arr(item, min=, max=)` | an array (optionally bounded) | `[item]{min,max}` |
+| `mapping(t)` | a map of string keys to `t` | `{ [string]: t }` |
+| `enum(*values)` | a fixed set of literals | `"a" \| "b"` |
+| `ref(name)` | a named-type reference | `Name` |
+| `schema(root, **named)` | assembles a `Schema` | `root … type Name = …` |
+
+For a scalar **union** use the class directly: `ScalarType({INTEGER, STRING})`
+(the same as `integer | string`).
+
+Named types and recursion work by passing named types to `schema(...)` and
+referring to them with `ref`:
+
+```python
+node = obj(value=integer, kids=arr(ref("Node")))
+s = schema(ref("Node"), Node=node)             # type Node = { value, kids: [Node] }
+```
+
+The builder produces ordinary `ObjectType` / `ScalarType` / … objects, which you
+can also navigate with uniform getters: `obj_type.field("name")`,
+`obj_type.children()`, `array_type.item`, `object_type.rest`. See the
+[API reference](api.md#schema-builder).

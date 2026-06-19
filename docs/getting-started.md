@@ -31,49 +31,64 @@ pip install pyyaml tomli_w defusedxml  # all format extras (optional)
 
 ## The two ideas you need
 
-Everything in dataspec is built on two concepts.
+Everything in dataspec is built on two concepts (see [Concepts](concepts.md) for
+the full picture).
 
-**A Document is plain Python data.** When you read a format, you get back
-ordinary `dict`, `list`, `str`, `int`, `float`, `bool`, `None`, and
-`datetime` values — nothing custom. You can index it, loop over it, and pass it
-to any other library. Converting between formats is literally *read one, write
-another*.
+**A Document is a tree of data, held by a `Doc`.** Objects, arrays, and scalars —
+format-neutral. You import data into a `Doc` (from a format string or a Python
+value) and then build, navigate, and edit it through a guarded API, so it stays
+well-formed. The same `Doc` writes out to any format.
 
-**A Schema describes the shape a Document should have.** You write it in a short
-text language (or build one with `infer`), then call `schema.validate(doc)`.
+**A Schema describes the shape a Document should have.** Write it as text, build
+it in Python, or infer it from examples, then call `schema.validate(doc)`.
 Validation tells you whether the data fits and, if not, exactly where it went
 wrong.
 
-See [Schemas](schema.md) for the precise definitions of *scalar*, *array*,
-*object*, and the rest.
+## Import a document
 
-## Read a document
-
-Each format has a `read_*` function that takes a **string** and returns a
-Document:
+Use `Doc.from_*` to import from a format string, or `doc(...)` to import a Python
+value:
 
 ```python
-from dataspec import read_json, read_yaml, read_toml, read_xml
+from dataspec import Doc, doc
 
-read_json('{"name": "Ann", "age": 30}')      # {'name': 'Ann', 'age': 30}
-read_yaml("name: Ann\nage: 30\n")            # {'name': 'Ann', 'age': 30}
-read_toml('name = "Ann"\nage = 30\n')        # {'name': 'Ann', 'age': 30}
-read_xml("<r><name>Ann</name><age>30</age></r>")  # {'name': 'Ann', 'age': 30}
+Doc.from_json('{"name": "Ann", "age": 30}')
+Doc.from_yaml("name: Ann\nage: 30\n")
+Doc.from_toml('name = "Ann"\nage = 30\n')
+Doc.from_xml("<r><name>Ann</name><age>30</age></r>")
+
+doc({"name": "Ann", "age": 30})              # from an in-memory structure
 ```
 
 Reading from a file is just reading its text:
 
 ```python
 from pathlib import Path
-doc = read_toml(Path("config.toml").read_text())
+d = Doc.from_toml(Path("config.toml").read_text())
+```
+
+## Navigate and edit
+
+You move one level at a time and edit through the API (full details in
+[Documents](document.md)):
+
+```python
+d = Doc.from_json('{"name": "Ann", "address": {"city": "HK"}, "tags": ["x"]}')
+
+d.get("name")                       # "Ann"
+d.child("address").get("city")      # "HK"   (navigate, then read)
+d.child("address").set("city", "NY")  # modify a scalar leaf
+d.child("tags").append("y")         # grow an array
+d.add("active", True)               # add a new field
 ```
 
 ## Validate it
 
-Write a schema and check the data against it:
+Write a schema and check a `Doc` against it. Validation is **Doc-only** — import
+your data into a `Doc` first:
 
 ```python
-from dataspec import parse_schema
+from dataspec import parse_schema, doc
 
 schema = parse_schema("""
     root {
@@ -83,11 +98,11 @@ schema = parse_schema("""
     }
 """)
 
-result = schema.validate({"name": "Ann", "age": 30, "tags": ["x"]})
+result = schema.validate(doc({"name": "Ann", "age": 30, "tags": ["x"]}))
 result.ok            # True
 bool(result)         # True  -- you can use the result directly in an `if`
 
-bad = schema.validate({"name": 1, "age": "old"})
+bad = schema.validate(doc({"name": 1, "age": "old"}))
 bad.ok               # False
 for err in bad.errors:
     print(err.path, "-", err.message)
@@ -95,19 +110,17 @@ for err in bad.errors:
 # $.age  - expected integer, got string
 ```
 
-`print(result)` gives a readable summary, and `schema.accepts(doc)` is a
-shortcut for `schema.validate(doc).ok`.
+`print(result)` gives a readable summary, and `schema.accepts(d)` is a shortcut
+for `schema.validate(d).ok`.
 
 ## Convert between formats
 
-Read one format, write another. The `write_*` functions return a string:
+Import one format, emit another — the `Doc.to_*` methods return a string:
 
 ```python
-from dataspec import read_json, write_yaml, write_toml
-
-doc = read_json('{"name": "Ann", "tags": ["x", "y"]}')
-write_yaml(doc)      # 'name: Ann\ntags:\n- x\n- y\n'
-write_toml(doc)      # 'name = "Ann"\ntags = ["x", "y"]\n'
+d = Doc.from_json('{"name": "Ann", "tags": ["x", "y"]}')
+d.to_yaml()      # 'name: Ann\ntags:\n- x\n- y\n'
+d.to_toml()      # 'name = "Ann"\ntags = ["x", "y"]\n'
 ```
 
 Not every value fits every format — TOML and XML have no `null`, for instance.
@@ -116,14 +129,12 @@ records what it changed, so you don't have to handle an error for the common
 case. Ask for the report, or pass `strict=True` to be told instead:
 
 ```python
-from dataspec import write_toml, check_toml, WriteError
+from dataspec import doc, WriteError
 
-write_toml({"items": [1, None, 2]})        # 'items = [1, 2]\n'  (null dropped)
-
-check_toml({"items": [1, None, 2]})        # a WriteReport listing the dropped null
+doc({"items": [1, None, 2]}).to_toml()        # 'items = [1, 2]\n'  (null dropped)
 
 try:
-    write_toml({"items": [1, None, 2]}, strict=True)
+    doc({"items": [1, None, 2]}).to_toml(strict=True)
 except WriteError as e:
     print(e)         # error: $.items[1]: null array item dropped (shifts positions)
 ```
@@ -136,11 +147,11 @@ The exact rules for each format — and what round-trips cleanly — are in
 If you already have data, let `infer` draft a schema for you:
 
 ```python
-from dataspec import infer
+from dataspec import infer, doc
 
 schema = infer([
-    {"id": 1, "email": "a@x.io"},
-    {"id": 2},                       # no email -> it becomes optional
+    doc({"id": 1, "email": "a@x.io"}),
+    doc({"id": 2}),                  # no email -> it becomes optional
 ])
 print(schema.to_dsl())
 # root { id: integer, email?: string }
@@ -151,7 +162,10 @@ and arrays.
 
 ## Where to go next
 
-- [Schemas](schema.md) — the full schema language and every type.
+- [Concepts](concepts.md) and [Architecture](architecture.md) — the mental model
+  and how the layers fit together.
+- [Documents](document.md) — the full `Doc` API: build, navigate, edit, emit.
+- [Schemas](schema.md) — the schema language *and* the Python builder.
 - [Formats](formats/overview.md) — per-format support and the comparison table.
 - [Comparing schemas](operations.md) — backward-compatibility checks for
   versioned APIs and configs.
