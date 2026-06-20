@@ -3,7 +3,7 @@ import re
 
 import pytest
 
-from dataspec import SchemaError, parse_schema, to_dsl
+from dataspec import SchemaError, doc, parse_schema, to_dsl
 
 CASES = [
     "root string",
@@ -25,6 +25,13 @@ CASES = [
     "root { when: datetime, day: date, at: time }",
     "type Point = { x: number, y: number }\nroot { a: Point, b: Point }",
     "type Tree = { value: integer, kids: [Tree] }\nroot Tree",
+    # mixed scalar kind + enum literal union (regression: used to silently
+    # drop the enum and accept any string)
+    'root integer | "foo"',
+    'root ("a" | "b" | integer)?',
+    'root string | "x" | "y" | integer',
+    'root { "first name": string, "home address": { "zip code": string } }',
+    'root { "123": string }',
 ]
 
 
@@ -33,6 +40,41 @@ def test_round_trip_equivalent(text):
     s = parse_schema(text)
     s2 = parse_schema(to_dsl(s))
     assert s.equivalent(s2), f"\noriginal: {text}\nserialized: {to_dsl(s)}"
+
+
+class TestMixedKindAndEnum:
+    """`integer | "foo"` etc. -- a bare scalar kind unioned with one or more
+    enum literals. Regression coverage for the bug where `_build_scalar`
+    silently dropped the enum and substituted a bare `string` kind, so
+    `integer | "foo"` accepted any string instead of only `"foo"`."""
+
+    def test_accepts_the_kind_and_the_literal_only(self):
+        s = parse_schema('root integer | "foo"')
+        assert s.accepts(doc(42))
+        assert s.accepts(doc("foo"))
+        assert not s.accepts(doc("bar"))     # the bug: this used to be accepted
+        assert not s.accepts(doc(4.2))        # not an integer, not "foo"
+
+    def test_multiple_literals_plus_kind(self):
+        s = parse_schema('root "open" | "closed" | integer')
+        assert s.accepts(doc("open"))
+        assert s.accepts(doc("closed"))
+        assert s.accepts(doc(7))
+        assert not s.accepts(doc("anything-else"))
+
+    def test_nullable_mixed_union(self):
+        s = parse_schema('root (integer | "foo")?')
+        assert s.accepts(doc(None))
+        assert s.accepts(doc(1))
+        assert s.accepts(doc("foo"))
+        assert not s.accepts(doc("bar"))
+
+    def test_round_trip_preserves_both_kind_and_enum(self):
+        s = parse_schema('root integer | "foo"')
+        s2 = parse_schema(to_dsl(s))
+        assert s.equivalent(s2)
+        assert s2.accepts(doc(42)) and s2.accepts(doc("foo"))
+        assert not s2.accepts(doc("bar"))
 
 
 def test_to_dsl_readable():
