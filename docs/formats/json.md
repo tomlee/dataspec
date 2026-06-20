@@ -23,6 +23,7 @@ write_json({"name": "Ann", "n": 1}, indent=2)
   Document model.
 - Any value can be at the top level: an object, an array, or a bare scalar.
 - `write_json` options: `indent` (pretty-print) and `sort_keys`.
+- Malformed JSON raises `ParseError` on read.
 
 ## Limitations
 

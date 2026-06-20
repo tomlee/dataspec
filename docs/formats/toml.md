@@ -24,6 +24,7 @@ print(write_toml({"name": "Ann", "tags": ["x", "y"]}))
 - Objects (tables), arrays, strings, integers, numbers, and booleans.
 - **Native date types.** `date`, `time`, and `datetime` values round-trip as
   real temporal values, not strings — TOML's standout feature.
+- Malformed TOML raises `ParseError` on read.
 
 ```python
 import datetime, tomllib

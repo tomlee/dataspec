@@ -1,7 +1,7 @@
 """infer, equivalent, compatible_with, normalize."""
 import pytest
 
-from dataspec import Doc, doc, infer, parse_schema, read_json
+from dataspec import Doc, SchemaError, doc, infer, parse_schema, read_json
 
 
 # ------------------------------------------------------------- infer
@@ -52,8 +52,31 @@ class TestInfer:
         assert not s.validate(doc({"xs": [1]})).ok          # no element type was seen
 
     def test_mixed_structure_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(SchemaError):
             infer([{"v": 1}, {"v": {"x": 1}}])
+
+    def test_mixed_object_and_array_raises(self):
+        with pytest.raises(SchemaError):
+            infer([{"v": [1]}, {"v": {"x": 1}}])
+
+    def test_bool_mixed_with_object_raises_cleanly(self):
+        # found by property-based fuzzing: a bool was classified separately
+        # from other scalars in the structural-mixing check, so this used to
+        # crash with a raw AttributeError ('bool' object has no attribute
+        # 'items') instead of the same clean SchemaError plain scalars get.
+        with pytest.raises(SchemaError):
+            infer([{"v": False}, {"v": {}}])
+
+    def test_bool_mixed_with_array_raises_cleanly(self):
+        with pytest.raises(SchemaError):
+            infer([{"v": False}, {"v": []}])
+
+    def test_bool_samples_still_infer_normally(self):
+        # the fix above must not change ordinary boolean inference
+        s = infer([{"v": True}, {"v": False}])
+        assert s.validate(doc({"v": True})).ok
+        assert s.validate(doc({"v": False})).ok
+        assert not s.validate(doc({"v": 1})).ok
 
     def test_round_trip_through_json(self):
         s = infer([read_json('{"id": 1, "tags": ["a"]}')])
