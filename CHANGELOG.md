@@ -4,6 +4,48 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.1.0a4]
+
+A security/robustness audit of the format codecs, prompted by the
+question "is the library safe now?" Found and fixed five more real
+bugs, none caught by the edge-case sweep in v0.1.0a3:
+
+- Fixed: a small, ordinary YAML payload using anchors/aliases to share
+  structure (not a cycle, just YAML's normal way of avoiding
+  duplication) took time **exponential** in nesting depth to validate
+  — a 469-byte, 9-level payload that `yaml.safe_load` parses instantly
+  didn't finish validating in 15 seconds. The cause was dataspec's own
+  post-parse cycle/depth check re-walking a shared subtree once per
+  alias reference instead of once per unique object; PyYAML itself
+  shares the constructed objects and was never the problem. Now linear
+  in the number of unique objects.
+- Fixed: `read_xml` silently fell back to the standard library's XML
+  parser (vulnerable to XXE/entity-expansion) with no indication at
+  all when the optional `defusedxml` dependency isn't installed. Now
+  raises `UnsafeXMLWarning` each time this happens.
+- Fixed: `read_json`/`read_toml` leaked the underlying parser's native
+  exception (`json.JSONDecodeError`, `tomllib.TOMLDecodeError`) on
+  malformed input instead of wrapping it in `ParseError` like
+  `read_yaml`/`read_xml` already did, breaking the documented
+  "catch everything with `except ParseError`" contract.
+- Fixed: `write_xml` embedded literal control characters (e.g. a NUL
+  byte) directly in the output with no warning — unlike the format's
+  other adjustments, this isn't lossy, the result doesn't parse as XML
+  *at all*. Now stripped and reported as `string.illegal_xml_char`,
+  an error.
+- Fixed: `infer()` crashed with a raw `AttributeError`/`TypeError` on a
+  sample like `[False, {}]`, instead of the same clean, documented
+  `SchemaError` every other "mix of structure and scalar" sample
+  already got. A bool was classified separately from other scalars in
+  the structural-mixing check; now it isn't.
+- New: `tests/test_property.py` — property-based fuzzing with
+  `hypothesis`, generating randomized Documents and text across every
+  codec and the DSL parser on every CI run. Found three of the five
+  bugs above.
+- New: `SECURITY.md` — the trust model for each format (what's
+  hardened, what isn't) and how to report a vulnerability (GitHub
+  private vulnerability reporting, now enabled on this repo).
+
 ## [v0.1.0a3]
 
 - Fixed: deeply/adversarially nested input (`Doc` construction, the
