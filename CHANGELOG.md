@@ -4,6 +4,35 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.1.0a5]
+
+- Fixed: `write_toml`/`check_toml` crashed with a raw `ValueError` on a
+  timezone-aware `time` (TOML's native `time` type has no offset slot
+  at all, only `date-time` does); now stringified and reported as
+  `temporal.stringified`.
+- New: `integer.precision_risk` — a JSON integer beyond JavaScript's
+  safe-integer range (`±2**53`) round-trips exactly through dataspec's
+  own `read_json`, but silently loses precision in a JS-based parser
+  (a browser, Node.js); now reported (the same class of interop risk
+  as TOML's existing `integer.out_of_range` check).
+- Documented: the XML root element's name is discarded on read and
+  doesn't survive a detour through another format — `<k>...</k>` →
+  JSON → XML gives `<root>...</root>` back, not `<k>...</k>`, unless
+  you explicitly re-supply `root="k"` yourself.
+- Documented: a `"How incompatibilities are handled"` overview in
+  `docs/formats/overview.md` naming the three buckets every
+  cross-format incompatibility falls into — raises (illegal input),
+  reported adjustment (lossy-but-legal), or silent read-time
+  normalization (comments, XML namespace prefixes — a short, fixed
+  list with no report mechanism, since neither was ever part of the
+  Document model).
+- New: explicit cross-format test coverage for key names that are
+  syntactically significant in one format's grammar but not another
+  (TOML's `. = [ ]`, YAML's `:`, the `#` comment marker shared by
+  both) — found that `.` is actually *legal inside an XML name*, so a
+  TOML-special key like `"a.b"` is the one case XML does **not**
+  sanitize; documented in `docs/formats/xml.md`.
+
 ## [v0.1.0a4]
 
 A security/robustness audit of the format codecs, prompted by the
