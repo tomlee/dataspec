@@ -19,6 +19,7 @@ values — nothing new to learn on the read side.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Any
 from typing import Optional as _Opt
 
@@ -134,8 +135,16 @@ def enum(*values: Any) -> ScalarType:
     """A scalar restricted to a fixed set of literal values."""
     if not values:
         raise SchemaError("enum() needs at least one value")
-    kinds = {_value_kind(v) for v in values}
-    return ScalarType(kinds, enum=set(values))
+    for v in values:
+        if not isinstance(v, (bool, int, float, str, _dt.date, _dt.time)):
+            raise SchemaError(f"enum value {v!r} is not a scalar literal")
+    # `kinds` stays empty: it must never be auto-derived from the literals'
+    # own types, or `_check_scalar`'s kind-fallback would accept any value
+    # of that kind, not just the specific literals (e.g. enum("a", "b")
+    # would wrongly accept any string). To allow a *kind* alongside an enum
+    # (`integer | "foo"`-equivalent), construct ScalarType(kinds, enum=...)
+    # directly -- enum() itself is pure-enum-only, like the DSL's `"a"|"b"`.
+    return ScalarType(set(), enum=set(values))
 
 
 def schema(root: Type, **types: Type) -> Schema:
@@ -143,15 +152,3 @@ def schema(root: Type, **types: Type) -> Schema:
     s = Schema(root, dict(types) if types else None)
     s.check_refs()
     return s
-
-
-def _value_kind(v: Any) -> str:
-    if isinstance(v, bool):
-        return BOOLEAN
-    if isinstance(v, int):
-        return INTEGER
-    if isinstance(v, float):
-        return NUMBER
-    if isinstance(v, str):
-        return STRING
-    raise SchemaError(f"enum value {v!r} is not a scalar literal")

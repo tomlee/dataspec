@@ -328,18 +328,20 @@ def _build(node: _N) -> Type:
 
 
 def _build_scalar(alts, nullable) -> ScalarType:
-    kinds, enum, has_kind = set(), set(), False
+    kinds, enum, has_enum = set(), set(), False
     for a in alts:
         if isinstance(a, _Scalar):
-            kinds.add(a.kind); has_kind = True
+            kinds.add(a.kind)
         else:
-            enum.add(a.value)
-    if enum and not has_kind:
-        return ScalarType({STRING}, nullable, enum)
-    if enum:
-        kinds.add(STRING)
+            enum.add(a.value); has_enum = True
     if NUMBER in kinds:
         kinds.discard(INTEGER)
+    if has_enum:
+        # `kinds` here only ever holds kinds explicitly unioned alongside the
+        # enum (e.g. the `integer` in `integer | "foo"`) -- never inferred
+        # from the literals themselves, or "foo" would accept any string,
+        # not just "foo".
+        return ScalarType(kinds, nullable, enum)
     return ScalarType(kinds, nullable)
 
 
@@ -369,7 +371,9 @@ def _emit(t: Type) -> str:
     if isinstance(t, AnyType):
         return s  # `any` already includes null
     if t.nullable:
-        return f"({s})?" if (isinstance(t, ScalarType) and len(t.kinds) > 1) else f"{s}?"
+        needs_parens = isinstance(t, ScalarType) and (
+            len(t.kinds) > 1 or (t.kinds and t.enum is not None))
+        return f"({s})?" if needs_parens else f"{s}?"
     return s
 
 
@@ -379,11 +383,19 @@ def _emit_bare(t: Type) -> str:
     if isinstance(t, RefType):
         return t.name
     if isinstance(t, ScalarType):
+        parts = []
+        if t.kinds:
+            parts.append(" | ".join(sorted(t.kinds)))
         if t.enum is not None:
-            return " | ".join('"' + v.replace('"', '\\"') + '"' for v in sorted(t.enum))
-        if not t.kinds:
+            # the DSL has no literal syntax for non-string values (enum
+            # literals are always strings when produced by parse_schema
+            # itself); a builder-built schema with a non-string enum value
+            # is stringified best-effort rather than crashing.
+            parts.append(" | ".join(
+                '"' + str(v).replace('"', '\\"') + '"' for v in sorted(t.enum, key=repr)))
+        if not parts:
             return "null"
-        return " | ".join(sorted(t.kinds))
+        return " | ".join(parts)
     if isinstance(t, ArrayType):
         inner = _emit(t.item)
         if t.min == 0 and t.max is None:

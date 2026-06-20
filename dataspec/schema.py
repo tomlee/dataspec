@@ -108,10 +108,12 @@ class ScalarType(Type):
         self.enum: Optional[frozenset] = frozenset(enum) if enum is not None else None
 
     def __repr__(self) -> str:
+        parts = []
+        if self.kinds:
+            parts.append("|".join(sorted(self.kinds)))
         if self.enum is not None:
-            body = "enum" + repr(sorted(self.enum))
-        else:
-            body = "|".join(sorted(self.kinds)) or "?"
+            parts.append("enum" + repr(sorted(self.enum, key=repr)))
+        body = "+".join(parts) if parts else "?"
         return f"scalar({body}{'?' if self.nullable else ''})"
 
 
@@ -341,8 +343,14 @@ class Schema:
 
     def _check_scalar(self, data, t: ScalarType, path, res) -> None:
         if t.enum is not None:
-            if data not in t.enum:
-                res.add(path, f"{data!r} not one of {sorted(t.enum)}")
+            if data in t.enum:
+                return
+            if t.kinds and _scalar_matches(data, t.kinds):
+                return
+            expected = f"one of {sorted(t.enum, key=repr)}"
+            if t.kinds:
+                expected += f" or {'|'.join(sorted(t.kinds))}"
+            res.add(path, f"{data!r} not {expected}")
             return
         if not _scalar_matches(data, t.kinds):
             res.add(path, f"expected {'|'.join(sorted(t.kinds))}, got {_typename(data)}")
@@ -498,8 +506,16 @@ def _subtype(sa: Schema, a: Type, sb: Schema, b: Type, seen: Set[tuple]) -> bool
                     return False
             else:
                 return False              # b is closed and has no such field
-        # extra keys a may emit (its rest) must be allowed by b's rest
+        # extra keys a may emit (its rest) must be allowed by b
         if a.rest is not None:
+            # a's rest can emit ANY key a doesn't explicitly name -- including
+            # one of b's named fields. Every such field of b must accept
+            # a.rest's type too, not just b's own rest (the wildcard's
+            # emitted labels can collide with the other side's named edges).
+            for k, fb in b.fields.items():
+                if k not in a.fields:
+                    if not _subtype(sa, a.rest, sb, fb.type, seen):
+                        return False
             if b.rest is None:
                 return False
             if not _subtype(sa, a.rest, sb, b.rest, seen):
@@ -509,13 +525,22 @@ def _subtype(sa: Schema, a: Type, sb: Schema, b: Type, seen: Set[tuple]) -> bool
 
 
 def _scalar_subtype(a: ScalarType, b: ScalarType) -> bool:
+    # every literal a.enum may emit must be accepted by b -- either as one
+    # of b's own literals, or by one of b's kinds (b may have both).
     if a.enum is not None:
-        if b.enum is not None:
-            return a.enum <= b.enum
-        return all(_kind_in(_value_kind(v), b.kinds) for v in a.enum)
-    if b.enum is not None:
-        return False                      # an open scalar isn't a subset of a finite enum
-    return all(_kind_in(k, b.kinds) for k in a.kinds)
+        for v in a.enum:
+            if b.enum is not None and v in b.enum:
+                continue
+            if b.kinds and _kind_in(_value_kind(v), b.kinds):
+                continue
+            return False
+    # every kind a.kinds may emit must be covered by one of b's kinds -- a
+    # kind allows arbitrarily many values, so a finite enum on b's side can
+    # never cover it, even if b also has kinds.
+    for k in a.kinds:
+        if not _kind_in(k, b.kinds):
+            return False
+    return True
 
 
 def _kind_in(k: str, kinds: Set[str]) -> bool:
@@ -533,6 +558,12 @@ def _value_kind(v: Any) -> str:
         return INTEGER
     if isinstance(v, float):
         return NUMBER
+    if isinstance(v, _dt.datetime):  # check before date: datetime is a date subclass
+        return DATETIME
+    if isinstance(v, _dt.date):
+        return DATE
+    if isinstance(v, _dt.time):
+        return TIME
     return STRING
 
 

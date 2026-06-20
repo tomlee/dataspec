@@ -4,6 +4,41 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.1.0a9]
+
+Three schema-compatibility/validation soundness bugs, found by comparing
+dataspec's `Schema`/`Type` model against the formal Schema Automaton (SA)
+model it's based on (Lee & Cheung, CIKM 2010):
+
+- **Fixed (unsound):** `compatible_with()`/`equivalent()` judged a schema
+  with an open map (`{[string]: T}` / `rest=`) "backward compatible" with a
+  schema that names one of those keys explicitly with an incompatible type
+  -- e.g. `{[string]: string}` was wrongly judged compatible with
+  `{extra?: integer, [string]: string}`, even though `{"extra": "hello"}`
+  is accepted by the former and rejected by the latter. The check only ever
+  compared the two schemas' `rest` types to each other and their named
+  fields to each other, never a `rest`'s emitted keys against the *other*
+  schema's named fields, even though an open map can emit any key,
+  including one the other side names explicitly.
+- **Fixed:** an `enum` of `date`/`time`/`datetime` values was wrongly
+  judged incompatible with a schema accepting that kind outright (e.g. an
+  enum of two specific dates vs. a plain `date` field) -- the internal
+  helper that classifies an enum literal's kind only recognized
+  `bool`/`int`/`float`, silently treating every temporal value as a
+  `string`.
+- **Fixed (unsound):** the DSL silently dropped an enum constraint when
+  mixed with a bare scalar kind in a union -- `integer | "foo"` accepted
+  any string, not just `"foo"`, because the parser substituted a bare
+  `string` kind for the enum instead of keeping both. The Python builder's
+  `enum()` had the same latent bug from the other direction: it set the
+  literals' own kind on the `ScalarType` it built, which (now that
+  validation correctly falls back to checking kinds alongside an enum)
+  would have made every builder-built enum accept any value of that kind,
+  not just its specific literals -- caught and fixed in the same pass.
+  `ScalarType`/`_check_scalar`/`_scalar_subtype`/`__repr__` now support a
+  scalar kind and an enum together as a real, intentional construct rather
+  than two mutually-exclusive representations.
+
 ## [v0.1.0a8]
 
 A breaking fix to XML's document-root handling, grounded in the labeled-tree
