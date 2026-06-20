@@ -69,7 +69,10 @@ def _json_key_str(k: Any) -> str:
 # ===========================================================================
 
 def read_json(text: str) -> Any:
-    return _json.loads(text)
+    try:
+        return _json.loads(text)
+    except _json.JSONDecodeError as exc:
+        raise ParseError(f"invalid JSON: {exc}") from exc
 
 
 def write_json(data: Any, *, indent: Optional[int] = None, sort_keys: bool = False,
@@ -228,7 +231,10 @@ def read_toml(text: str) -> Any:
         import tomllib as toml
     except ImportError:  # pragma: no cover
         toml = _need("tomli", "tomli", "pip install tomli")
-    return toml.loads(text)
+    try:
+        return toml.loads(text)
+    except toml.TOMLDecodeError as exc:
+        raise ParseError(f"invalid TOML: {exc}") from exc
 
 
 def write_toml(data: Any, *, strict: bool = False,
@@ -330,6 +336,13 @@ def _strip_nulls(data: Any, path: str, rep: WriteReport, null_style: str,
 # ===========================================================================
 
 _XML_NAME = _re.compile(r"^[A-Za-z_][A-Za-z0-9_.\-]*$")
+
+# The legal Char production from the XML 1.0 spec, negated: matches any
+# character that cannot appear in well-formed XML at all (most C0 controls,
+# surrogates, and a couple of noncharacters) -- not even as a character
+# reference, so a value containing one of these can't be written as text.
+_XML_ILLEGAL_CHAR = _re.compile(
+    '[^\t\n\r\x20-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]')
 
 
 def read_xml(text: str) -> Any:
@@ -479,16 +492,30 @@ def _xml_text(v: Any, path: str, rep: WriteReport) -> str:
                 "temporal value written as text (reads back as a string)",
                 "warning")
         return v.isoformat()
-    if isinstance(v, str) and _coerce(v) != v:
+    if not isinstance(v, str):
+        return str(v)
+    text = v
+    if _XML_ILLEGAL_CHAR.search(text):
+        # These code points (most C0 controls, surrogates, a few others) have
+        # no representation in XML 1.0 at all -- not even a character
+        # reference -- so the previous behavior (write them anyway) produced
+        # output that doesn't just round-trip differently, it doesn't parse
+        # as XML at all. Stripping is lossy, but the alternative is silently
+        # writing unreadable output.
+        rep.add(path, "string.illegal_xml_char",
+                f"string {v!r} contains a character with no legal XML "
+                "representation; it was removed", "error")
+        text = _XML_ILLEGAL_CHAR.sub("", text)
+    if _coerce(text) != text:
         rep.add(path, "string.ambiguous",
-                f"string {v!r} looks like a different type and will not "
+                f"string {text!r} looks like a different type and will not "
                 "read back as a string", "warning")
-    elif isinstance(v, str) and "\r" in v:
+    elif "\r" in text:
         rep.add(path, "string.line_ending_normalized",
                 "the XML spec requires \\r\\n and \\r to be normalized to "
                 "\\n on read, so this string will not read back unchanged",
                 "warning")
-    return str(v)
+    return text
 
 
 def _coerce(text: str) -> Any:

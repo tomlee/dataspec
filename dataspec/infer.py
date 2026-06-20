@@ -45,13 +45,17 @@ def infer(samples, open_objects: bool = False) -> Schema:
 
 
 def _kind_of(v: Any) -> str:
-    if isinstance(v, bool):
-        return "B"
+    # Note: bool is intentionally classified as "S" (scalar) here, even
+    # though isinstance(v, bool) is also true for int checks elsewhere --
+    # this function only decides object/array/scalar *structure*, and a
+    # bool mixed with an object/array must hit the same mixed-shape
+    # SchemaError as any other scalar (previously it didn't, and a sample
+    # like [False, {}] crashed with a raw AttributeError instead).
     if isinstance(v, dict):
         return "O"
     if isinstance(v, list):
         return "A"
-    return "S"  # scalar (incl None)
+    return "S"  # scalar (incl None and bool)
 
 
 def _infer(values: List[Any], open_objects: bool) -> Type:

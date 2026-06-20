@@ -58,6 +58,12 @@ class TestJson:
         out = write_json({"t": datetime.date(2024, 1, 1)})
         assert json.loads(out)["t"] == "2024-01-01"
 
+    def test_invalid_json_raises_parse_error_not_the_stdlib_exception(self):
+        # used to leak json.JSONDecodeError directly, breaking the "catch
+        # everything with except ParseError" contract docs/api.md promises.
+        with pytest.raises(ParseError):
+            read_json("not json{{{")
+
 
 # ---------------------------------------------------------------- YAML
 class TestYaml:
@@ -114,6 +120,13 @@ class TestToml:
 
     def test_read(self):
         assert read_toml('a = 1\n[b]\nc = "x"\n') == {"a": 1, "b": {"c": "x"}}
+
+    def test_invalid_toml_raises_parse_error_not_the_stdlib_exception(self):
+        # used to leak tomllib.TOMLDecodeError directly, breaking the
+        # "catch everything with except ParseError" contract docs/api.md
+        # promises.
+        with pytest.raises(ParseError):
+            read_toml("not = = toml")
 
     def test_datetime_native(self):
         d = {"created": datetime.datetime(2024, 1, 1, 12, 0)}
@@ -308,6 +321,26 @@ class TestReports:
     def test_xml_strict_raises_on_crlf(self):
         with pytest.raises(WriteError):
             write_xml({"a": "line1\r\nline2"}, root="r", strict=True)
+
+    def test_xml_illegal_char_is_stripped_and_reported(self):
+        # write_xml used to embed control characters like NUL directly in
+        # the output with no warning -- producing XML that isn't just lossy,
+        # it doesn't parse at all (verified: the old output raised ParseError
+        # from dataspec's own read_xml, not just from other implementations).
+        rep = WriteReport()
+        out = write_xml({"a": chr(0) + "hello"}, root="r", report=rep)
+        assert [a.code for a in rep] == ["string.illegal_xml_char"]
+        assert rep.errors  # data is destroyed, not just reshaped -- an error
+        assert read_xml(out) == {"a": "hello"}
+
+    def test_xml_strict_raises_on_illegal_char(self):
+        with pytest.raises(WriteError):
+            write_xml({"a": chr(0)}, root="r", strict=True)
+
+    def test_xml_ordinary_control_chars_are_legal(self):
+        # tab, LF, CR are explicitly legal XML Chars -- must not be stripped
+        rep = check_xml({"a": "a\tb\nc"}, root="r")
+        assert [a.code for a in rep if a.code == "string.illegal_xml_char"] == []
 
     def test_xml_strict_raises_on_ambiguous_string(self):
         with pytest.raises(WriteError):
