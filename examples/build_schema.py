@@ -1,60 +1,84 @@
 #!/usr/bin/env python3
-"""Build a schema in Python with the builder, compare it to the DSL, validate.
+"""A full schema, built two ways: DSL text and the Python builder.
+
+Combines a named type, an enum, a required array with a minimum length, an
+optional field, and a map (the "rest" of an object) -- the pieces most
+schemas actually need together, not in isolation. See docs/schema.md for the
+full write-up this example backs.
 
 Run: python3 examples/build_schema.py
 """
-from dataspec import (
-    arr,
-    doc,
-    enum,
-    mapping,
-    nullable,
-    obj,
-    optional,
-    parse_schema,
-    schema,
-    t,
-)
+from dataspec import arr, doc, enum, mapping, obj, optional, parse_schema, schema, t
+
+DSL = """
+type Address = { street: string, city: string }
+type LineItem = { sku: string, qty: integer, price: number }
+
+root {
+    order: {
+        id:      string,
+        status:  "pending" | "shipped" | "cancelled",
+        total:   number,
+        address: Address,
+        items:   [LineItem]+,          # at least one line item
+        coupon?: string,               # optional
+        tags:    { [string]: string }, # arbitrary extra keys -> string
+    },
+}
+"""
+
+
+def builder_schema():
+    address_t = obj(street=t.string, city=t.string)
+    line_item_t = obj(sku=t.string, qty=t.integer, price=t.number)
+    order_t = obj(
+        id=t.string,
+        status=enum("pending", "shipped", "cancelled"),
+        total=t.number,
+        address=address_t,
+        items=arr(line_item_t, min=1),
+        coupon=optional(t.string),
+        tags=mapping(t.string),
+    )
+    return schema(obj(order=order_t))
 
 
 def main():
-    # The builder produces the same object tree parse_schema would.
-    s = schema(obj(
-        id      = t.integer,
-        name    = t.string,
-        status  = enum("open", "shipped", "cancelled"),
-        tags    = arr(t.string),
-        note    = optional(t.string),
-        deleted = nullable(t.boolean),
-        scores  = mapping(t.integer),          # { [string]: integer }
-    ))
+    s_dsl = parse_schema(DSL)
+    s_builder = builder_schema()
 
-    print("== built schema, printed as DSL ==")
-    print(s.to_dsl())
+    print("== the builder produces the same schema as the DSL text ==")
+    print("equivalent:", s_dsl.equivalent(s_builder))
 
-    equivalent_dsl = parse_schema("""
-        root {
-            id:      integer,
-            name:    string,
-            status:  "open" | "shipped" | "cancelled",
-            tags:    [string],
-            note?:   string,
-            deleted: boolean?,
-            scores:  { [string]: integer },
+    good = {
+        "order": {
+            "id": "A1001",
+            "status": "shipped",
+            "total": 29.97,
+            "address": {"street": "1 Main St", "city": "London"},
+            "items": [{"sku": "WIDGET", "qty": 3, "price": 9.99}],
+            "tags": {"region": "EU"},
         }
-    """)
-    print("builder == DSL:", s.equivalent(equivalent_dsl))
+    }
+    print("\n== a valid document (coupon omitted -- it's optional) ==")
+    print(s_dsl.validate(doc(good)))
 
-    print("\n== validate a document ==")
-    d = doc({
-        "id": 1, "name": "Ann", "status": "open",
-        "tags": ["a"], "deleted": None, "scores": {"jan": 5},
-    })
-    print(s.validate(d))
+    bad = {
+        "order": {
+            "id": "A1002",
+            "status": "lost",          # not one of the enum values
+            "total": 10,
+            "address": {"street": "2 Main St", "city": "London"},
+            "items": [],                # violates the [LineItem]+ minimum
+            "tags": {},
+        }
+    }
+    print("\n== an invalid document -- every problem, with its exact path ==")
+    print(s_dsl.validate(doc(bad)))
 
     print("\n== navigate the schema with uniform getters ==")
-    print("field 'status':", s.root.field("status"))
-    print("children:", [name for name, _ in s.root.children()])
+    order_type = s_dsl.root.field("order")
+    print("order's fields:", [name for name, _ in order_type.children()])
 
 
 if __name__ == "__main__":

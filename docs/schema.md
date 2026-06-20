@@ -25,7 +25,39 @@ result.errors[0].message        # 'expected string, got integer'
 
 You can also build the same schema in Python instead of as text — see
 [The Python builder](#the-python-builder). This page defines every concept and
-every type, with examples.
+every type, with examples; if you'd rather see them all combined first, jump
+to [A full example](#a-full-example).
+
+### DSL or builder?
+
+Both produce the identical `Schema` object — pick whichever fits the moment:
+
+- **DSL text** reads like the data it describes, is easy to save to a file or
+  show a teammate, and is what `to_dsl()` prints back (handy for an inferred
+  schema). Prefer it for schemas you write by hand.
+- **The builder** is plain Python — composable, IDE/type-checker-friendly, and
+  the natural choice when a schema is generated, assembled from reusable
+  pieces, or built up conditionally in code.
+
+### Quick reference
+
+| Concept | DSL | Builder |
+|---|---|---|
+| scalar | `string`, `integer`, `number`, `boolean`, `date`, `time`, `datetime` | `t.string`, `t.integer`, … |
+| anything | `any` | `t.any` |
+| nullable | `T?` | `nullable(T)` |
+| union | `integer \| string` | `ScalarType({INTEGER, STRING})` |
+| enum | `"a" \| "b"` | `enum("a", "b")` |
+| kind + enum | `integer \| "unknown"` | `ScalarType({INTEGER}, enum={"unknown"})` |
+| array | `[T]`, `[T]+`, `[T]{2,5}` | `arr(T)`, `arr(T, min=1)`, `arr(T, 2, 5)` |
+| object (closed) | `{ a: T }` | `obj(a=T)` |
+| optional field | `a?: T` | `obj(a=optional(T))` |
+| open object | `{ a: T, ... }` | `ObjectType({...}, rest=AnyType())` |
+| map | `{ [string]: T }` | `mapping(T)` |
+| named type | `type Name = T` ... `Name` | `schema(root, Name=T)` ... `ref("Name")` |
+
+See [The schema text](#the-schema-text) and [The Python builder](#the-python-builder)
+below for the full explanation of each.
 
 ## Concepts
 
@@ -102,6 +134,20 @@ of them:
 
 ```
 root "open" | "shipped" | "cancelled"
+```
+
+A kind and an enum can be unioned together — the data must be either, not just
+the enum values:
+
+```
+root integer | "unknown"     # any integer, or specifically the string "unknown"
+```
+
+```python
+s = parse_schema('root integer | "unknown"')
+s.validate(doc(7)).ok               # True — matches the integer kind
+s.validate(doc("unknown")).ok       # True — matches the literal
+s.validate(doc("other")).ok         # False — neither
 ```
 
 > Unions are for scalars and enums. You can't union two different *structures*
@@ -238,37 +284,97 @@ A reference to an undefined type is caught when you parse the schema:
 parse_schema("root { a: Missing }")      # raises SchemaError: unknown type 'Missing'
 ```
 
-## Putting it together
+## A full example
 
-A realistic schema combines several of the above: a named type, an optional
-field, a nullable nested field, and an array.
+A realistic schema combines several of the above at once. Here's one for an
+order — two named types, an enum, a required array with a minimum length, an
+optional field, and a map for arbitrary extra metadata — built **both** ways,
+so you can see the DSL text and its exact builder equivalent side by side.
+This is [`examples/build_schema.py`](../examples/build_schema.py); every
+output below is its actual, tested output, not illustrative pseudocode.
+
+**As DSL text:**
 
 ```
-type Address = {
-    city: string,
-    geo:  { lat: number, lon: number }?,   # may be null
-}
+type Address = { street: string, city: string }
+type LineItem = { sku: string, qty: integer, price: number }
 
 root {
-    name:    string,
-    tags?:   [string],                     # optional field
-    address: Address,
+    order: {
+        id:      string,
+        status:  "pending" | "shipped" | "cancelled",
+        total:   number,
+        address: Address,
+        items:   [LineItem]+,          # at least one line item
+        coupon?: string,               # optional
+        tags:    { [string]: string }, # arbitrary extra keys -> string
+    },
 }
 ```
 
+**The same schema with the builder:**
+
 ```python
-s = parse_schema("""
-type Address = { city: string, geo: { lat: number, lon: number }? }
-root { name: string, tags?: [string], address: Address }
-""")
+from dataspec import arr, enum, mapping, obj, optional, schema, t
 
-s.validate(doc({"name": "Ann", "address": {"city": "London", "geo": None}})).ok
-# True — tags omitted (optional), geo present but null
-
-s.validate(doc({"name": "Ann", "tags": ["vip"],
-                "address": {"city": "London", "geo": {"lat": 51.5, "lon": -0.1}}})).ok
-# True
+address_t = obj(street=t.string, city=t.string)
+line_item_t = obj(sku=t.string, qty=t.integer, price=t.number)
+order_t = obj(
+    id=t.string,
+    status=enum("pending", "shipped", "cancelled"),
+    total=t.number,
+    address=address_t,
+    items=arr(line_item_t, min=1),
+    coupon=optional(t.string),
+    tags=mapping(t.string),
+)
+s_builder = schema(obj(order=order_t))
 ```
+
+Both produce an equivalent `Schema` — `s_dsl.equivalent(s_builder)` is `True`.
+(The root is `{ order: {...} }`, one top-level key, rather than the order
+fields directly at the root — this makes the same Document also a valid,
+lossless single XML document later; see [XML](formats/xml.md#xml-is-single-rooted).)
+
+**A document it accepts** (`coupon` omitted — it's optional):
+
+```python
+good = {
+    "order": {
+        "id": "A1001",
+        "status": "shipped",
+        "total": 29.97,
+        "address": {"street": "1 Main St", "city": "London"},
+        "items": [{"sku": "WIDGET", "qty": 3, "price": 9.99}],
+        "tags": {"region": "EU"},
+    }
+}
+s_dsl.validate(doc(good))
+# valid
+```
+
+**A document it rejects**, with one error per problem:
+
+```python
+bad = {
+    "order": {
+        "id": "A1002",
+        "status": "lost",          # not one of the enum values
+        "total": 10,
+        "address": {"street": "2 Main St", "city": "London"},
+        "items": [],                # violates the [LineItem]+ minimum
+        "tags": {},
+    }
+}
+s_dsl.validate(doc(bad))
+# invalid:
+#   at $.order.status: 'lost' not one of ['cancelled', 'pending', 'shipped']
+#   at $.order.items: array length 0 is not at least 1
+```
+
+Run `python3 examples/build_schema.py` to see this end to end, including
+navigating the built schema with the uniform getters (`.field()`,
+`.children()`) covered in [Architecture](architecture.md).
 
 ## Validation results
 
@@ -332,8 +438,16 @@ The vocabulary (where `T` stands for any type):
 | `ref(name)` | a named-type reference | `Name` |
 | `schema(root, **named)` | assembles a `Schema` | `root … type Name = …` |
 
-For a scalar **union** use the class directly: `ScalarType({INTEGER, STRING})`
-(the same as `integer | string`).
+A few constructs have no dedicated builder function and need the `Type`
+classes directly (`from dataspec.schema import ScalarType, ObjectType,
+AnyType, INTEGER, STRING`):
+
+- **A scalar union** — `ScalarType({INTEGER, STRING})` (same as `integer | string`).
+- **A kind unioned with an enum** — `ScalarType({INTEGER}, enum={"unknown"})`
+  (same as `integer | "unknown"`).
+- **An open object with named fields** — `obj()` alone only builds a *closed*
+  object, so for `{ a: T, ... }` build the closed form first and swap in an
+  `AnyType` rest: `ObjectType(obj(a=T).fields, rest=AnyType())`.
 
 Named types and recursion work by passing named types to `schema(...)` and
 referring to them with `ref`:
