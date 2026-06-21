@@ -3,16 +3,16 @@
 A self-contained implementation of the redesigned Document and Schema models
 described in ``docs/design/model.md``:
 
-* :mod:`~dataspec.canonical.document` — the Document as an ordered list of
+* :mod:`~omnist.canonical.document` — the Document as an ordered list of
   labeled edges, not a dict-with-arrays.
-* :mod:`~dataspec.canonical.schema` — the Schema as ``Record`` (labels) /
+* :mod:`~omnist.canonical.schema` — the Schema as ``Record`` (labels) /
   ``Scalar`` (one of seven, never composed) / ``Ref``, with field
   cardinality, plus conformance.
-* :mod:`~dataspec.canonical.dsl` — the ``record`` text syntax.
-* :mod:`~dataspec.canonical.operations` — ``compatible_with`` / ``equivalent``
+* :mod:`~omnist.canonical.dsl` — the ``record`` text syntax.
+* :mod:`~omnist.canonical.operations` — ``compatible_with`` / ``equivalent``
   / ``normalize`` on the new model.
 
-This package is the implementation of the model; ``import dataspec`` is its
+This package is the implementation of the model; ``import omnist`` is its
 public surface.
 """
 

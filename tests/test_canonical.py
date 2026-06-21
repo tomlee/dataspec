@@ -8,7 +8,7 @@ import datetime
 
 import pytest
 
-from dataspec.canonical import (
+from omnist.canonical import (
     Doc,
     Format,
     WriteReport,
@@ -39,21 +39,21 @@ from dataspec.canonical import (
     write_xml,
     write_yaml,
 )
-from dataspec.errors import DocumentError, ParseError, SchemaError, WriteError
+from omnist.errors import DocumentError, ParseError, SchemaError, WriteError
 
 yaml = pytest.importorskip("yaml")
 
 
 # ----------------------------------------------------------- public API
 class TestPublicApi:
-    """The `import dataspec` surface: schema operations as methods, the `t`
+    """The `import omnist` surface: schema operations as methods, the `t`
     builder namespace, validation, codecs."""
 
     def test_methods_and_t_namespace(self):
-        import dataspec as ds
+        import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.1.1a7"
+        assert ds.__version__ == "0.1.1a8"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_dsl(s)))
@@ -67,7 +67,7 @@ class TestPublicApi:
         assert not b.validate(ds.doc({"v": "other"})).ok
 
     def test_old_names_are_gone(self):
-        import dataspec as ds
+        import omnist as ds
         for name in ("obj", "arr", "ObjectType", "ArrayType", "ScalarType", "mapping",
                      "Union", "union"):
             assert not hasattr(ds, name), f"{name} should be removed (clean break)"
@@ -125,37 +125,37 @@ class TestDocument:
 
 class TestInfer:
     def test_flat(self):
-        from dataspec.canonical import infer
+        from omnist.canonical import infer
         s = infer([doc({"name": "Ann", "age": 30}), doc({"name": "Bob"})])
         assert s.validate(doc({"name": "Cy"})).ok           # age optional
         assert not s.validate(doc({"age": 1})).ok           # name required
 
     def test_array_and_nested(self):
-        from dataspec.canonical import infer
+        from omnist.canonical import infer
         s = infer([doc({"id": 1, "tags": ["a", "b"], "addr": {"city": "X"}})])
         assert s.validate(doc({"id": 9, "tags": ["c"], "addr": {"city": "Y"}})).ok
         assert not s.validate(doc({"id": 9, "tags": [1], "addr": {"city": "Y"}})).ok
 
     def test_accepts_its_own_samples(self):
-        from dataspec.canonical import infer
+        from omnist.canonical import infer
         samples = [doc({"v": 1}), doc({"v": 2.5})]          # int + float -> number
         s = infer(samples)
         for sm in samples:
             assert s.validate(sm).ok
 
     def test_conflicting_scalars_raise(self):
-        from dataspec.canonical import infer
+        from omnist.canonical import infer
         with pytest.raises(SchemaError):
             infer([doc({"v": 1}), doc({"v": "x"})])
 
     def test_null_only_field_infers_nullable_string(self):
-        from dataspec.canonical import infer
+        from omnist.canonical import infer
         s = infer([doc({"v": None}), doc({"v": None})])
         assert s.validate(doc({"v": None})).ok
         assert s.validate(doc({"v": "anything"})).ok
 
     def test_null_alongside_a_kind_is_orthogonal(self):
-        from dataspec.canonical import infer
+        from omnist.canonical import infer
         s = infer([doc({"v": 1}), doc({"v": None})])
         assert s.validate(doc({"v": 7})).ok
         assert s.validate(doc({"v": None})).ok
@@ -356,7 +356,7 @@ class TestOperations:
         assert not compatible_with(b, a)
 
     def test_temporal_date_not_compatible_with_string(self):
-        from dataspec.canonical import DATE, STRING
+        from omnist.canonical import DATE, STRING
         a = schema(ref("R"), R=record(field("d", DATE)))
         b = schema(ref("R"), R=record(field("d", STRING)))
         assert not compatible_with(a, b)
@@ -475,7 +475,7 @@ class TestDeserialize:
         assert read_json('{"a": 1}') == [("a", 1)]      # no schema -> unchanged
 
     def test_schema_directed_via_doc_from_json(self):
-        from dataspec.canonical import Doc
+        from omnist.canonical import Doc
         s = parse_schema('record R { "d": date }\nroot R')
         d = Doc.from_json('{"d": "2024-01-01"}', schema=s)
         assert d.get_one("d").value == datetime.date(2024, 1, 1)
@@ -551,8 +551,8 @@ class TestRegistry:
         assert fmt.write(node) == '{"a": 1}'
 
     def test_unknown_format_raises(self):
-        from dataspec.errors import DataspecError
-        with pytest.raises(DataspecError):
+        from omnist.errors import OmnistError
+        with pytest.raises(OmnistError):
             get_format("nope")
 
     def test_register_a_plugin(self):

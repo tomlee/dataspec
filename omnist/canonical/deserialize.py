@@ -1,12 +1,12 @@
 """Schema-directed deserialization: upgrade a freshly-read node's leaf values
-to match a :class:`~dataspec.canonical.schema.Schema`'s declared scalars.
+to match a :class:`~omnist.canonical.schema.Schema`'s declared scalars.
 
 Readers (``read_json``, etc.) hand back text-shaped values: JSON/YAML/TOML
 have no ``date``/``time`` type, so a temporal field arrives as an ISO-8601
 string; a whole-number ``float`` may need to become an ``int`` (or vice
 versa) to match what the schema declares. :func:`materialize` converts each
 leaf **only when the conversion is value-exact** -- ``"2024-01-01" -> date``,
-``1.0 -> int 1`` -- and raises :class:`~dataspec.errors.ParseError` when it
+``1.0 -> int 1`` -- and raises :class:`~omnist.errors.ParseError` when it
 isn't -- ``1.5 -> integer``, ``"abc" -> integer``.
 
 This is unambiguous by construction: every field has exactly one candidate

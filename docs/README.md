@@ -1,4 +1,4 @@
-# dataspec documentation
+# omnist documentation
 
 Start here, in roughly this order:
 
@@ -22,9 +22,12 @@ Start here, in roughly this order:
 - **Validate** a Document against a schema, **compare** two schemas for
   backward-compatibility (`compatible_with`), or **infer** a schema from
   examples.
+- Readers accept an optional `schema=` to upgrade leaves (ISO strings to real
+  `date`/`time`/`datetime`, numeric types) to match the schema, when the
+  conversion is value-exact.
 
 ```python
-from dataspec import parse_schema, doc
+from omnist import parse_schema, doc
 
 s = parse_schema('''
     record Member { "name": string, "role": string }

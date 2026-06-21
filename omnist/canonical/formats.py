@@ -7,9 +7,9 @@ element on write.
 
 Writing is **lenient by default**: when a value can't be held losslessly (TOML
 has no ``null``; JSON/XML have no date type), the writer adjusts it and records
-the change in a :class:`~dataspec.canonical.report.WriteReport`.  Pass
+the change in a :class:`~omnist.canonical.report.WriteReport`.  Pass
 ``report=`` to inspect, or ``strict=True`` to raise on any adjustment.  See
-:mod:`~dataspec.canonical.report`.
+:mod:`~omnist.canonical.report`.
 """
 
 from __future__ import annotations

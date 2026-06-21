@@ -1,6 +1,6 @@
 # Design: Canonical Document & Schema Model
 
-**Status:** Implemented (v0.1.1a1) — `import dataspec`, with the implementation in `dataspec.canonical`
+**Status:** Implemented (v0.1.1a1) — `import omnist`, with the implementation in `omnist.canonical`
 **Date:** 2026-06-21
 **Superseded:** the former `Doc` (dict/list/scalar) and `Type` tree (`ObjectType`/`ArrayType`/`ScalarType`/`RefType`/`AnyType`), removed in v0.1.1a1
 
@@ -13,7 +13,7 @@
 
 ## 1. Summary
 
-This defines dataspec's two core models — the **Document** (the data) and the
+This defines omnist's two core models — the **Document** (the data) and the
 **Schema** (the constraint) — as one small, format-independent formalism,
 deliberately restrictive for the JSON family of formats.
 

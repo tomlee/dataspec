@@ -6,7 +6,7 @@ parsing is hardened against entity-expansion / XXE attacks (without it, the
 standard-library parser is used and `read_xml` emits an `UnsafeXMLWarning`).
 
 ```python
-from dataspec import read_xml, Doc
+from omnist import read_xml, Doc
 
 d = Doc(read_xml("<order><id>A1</id>"
                  "<item><sku>W</sku></item><item><sku>G</sku></item></order>"))

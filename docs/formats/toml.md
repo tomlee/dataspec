@@ -4,7 +4,7 @@ Reading uses the standard-library `tomllib` (Python 3.11+); writing needs
 `pip install tomli_w`.
 
 ```python
-from dataspec import read_toml, Doc
+from omnist import read_toml, Doc
 
 d = Doc(read_toml("""
 [order]

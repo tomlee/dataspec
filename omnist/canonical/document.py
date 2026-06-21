@@ -265,7 +265,7 @@ class Doc:
     def check_format(self, name: str) -> "WriteReport":
         """Simulate writing to format ``name`` and return the adjustment
         report, without producing output. Requires the registered
-        :class:`~dataspec.canonical.registry.Format` to provide a ``check``
+        :class:`~omnist.canonical.registry.Format` to provide a ``check``
         callable (the four built-ins do; a custom plugin may not)."""
         from .registry import get_format
         fmt = get_format(name)

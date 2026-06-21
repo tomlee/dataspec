@@ -32,7 +32,7 @@ root Root
 The same schema with the Python builder:
 
 ```python
-from dataspec import schema, record, field, ref, t
+from omnist import schema, record, field, ref, t
 
 address  = record(field("street", t.string), field("city", t.string))
 lineitem = record(field("sku", t.string), field("qty", t.integer),
@@ -55,7 +55,7 @@ s = schema(ref("Root"),
 Each of these reads into the **identical** Document, and validates:
 
 ```python
-from dataspec import parse_schema, read_json, read_yaml, read_toml, read_xml, Doc
+from omnist import parse_schema, read_json, read_yaml, read_toml, read_xml, Doc
 
 s = parse_schema(SCHEMA)   # the DSL above
 

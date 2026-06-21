@@ -3,8 +3,8 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dataspec"
-version = "0.1.1a7"
+name = "omnist"
+version = "0.1.1a8"
 description = "One data model, many formats: read, validate, and write JSON, YAML, TOML, and XML."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,16 +31,16 @@ all = ["pyyaml", "tomli_w", "defusedxml"]
 dev = ["pytest", "pyyaml", "tomli_w", "defusedxml", "ruff", "hypothesis"]
 
 [project.urls]
-Homepage = "https://github.com/tomlee/dataspec"
-Repository = "https://github.com/tomlee/dataspec"
-Issues = "https://github.com/tomlee/dataspec/issues"
-Changelog = "https://github.com/tomlee/dataspec/blob/master/CHANGELOG.md"
+Homepage = "https://github.com/tomlee/omnist"
+Repository = "https://github.com/tomlee/omnist"
+Issues = "https://github.com/tomlee/omnist/issues"
+Changelog = "https://github.com/tomlee/omnist/blob/master/CHANGELOG.md"
 
 [tool.setuptools]
-packages = ["dataspec", "dataspec.canonical"]
+packages = ["omnist", "omnist.canonical"]
 
 [tool.setuptools.package-data]
-dataspec = ["py.typed"]
+omnist = ["py.typed"]
 
 [tool.ruff]
 target-version = "py311"

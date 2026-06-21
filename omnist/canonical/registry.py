@@ -13,7 +13,7 @@ from __future__ import annotations
 import threading
 from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
-from ..errors import DataspecError
+from ..errors import OmnistError
 
 
 class Format(NamedTuple):
@@ -40,7 +40,7 @@ def get_format(name: str) -> Format:
             return _REGISTRY[name]
         except KeyError:
             known = ", ".join(sorted(_REGISTRY)) or "(none)"
-            raise DataspecError(f"unknown format {name!r}; registered: {known}") from None
+            raise OmnistError(f"unknown format {name!r}; registered: {known}") from None
 
 
 def formats() -> List[str]:

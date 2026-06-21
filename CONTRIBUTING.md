@@ -1,13 +1,13 @@
 # Contributing
 
-dataspec is **alpha** and the API can still change, but the workflow below is
+omnist is **alpha** and the API can still change, but the workflow below is
 the real one this project uses — not a placeholder.
 
 ## Setup
 
 ```bash
-git clone https://github.com/tomlee/dataspec.git
-cd dataspec
+git clone https://github.com/tomlee/omnist.git
+cd omnist
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .[dev]      # core + all formats + pytest + ruff
 ```
@@ -39,7 +39,7 @@ Changes go through a pull request, not a direct push to `master`:
 - This codebase uses `;`-joined one-liners and one-line class/def bodies in a
   few places (notably `dsl.py`) — that's intentional (see the `E701`/`E702`
   ignores in `pyproject.toml`), not something to "clean up" in an unrelated PR.
-- No type checker is wired in yet; `dataspec/py.typed` exists so callers'
+- No type checker is wired in yet; `omnist/py.typed` exists so callers'
   type checkers trust the package's hints, but nothing currently verifies the
   hints themselves.
 
@@ -47,9 +47,9 @@ Changes go through a pull request, not a direct push to `master`:
 
 - Every new function or fixed bug gets a test. Tests that assert *errors* are
   raised matter as much as tests for the happy path — see
-  `tests/test_dsl.py`'s `BAD_CASES` table for the pattern: verify the actual
-  exception type and message against the real code before writing the
-  assertion, don't guess at what it "should" say.
+  `tests/test_canonical.py`'s `TestDslRobustness` and `TestValidation` classes
+  for the pattern: verify the actual exception type and message against the
+  real code before writing the assertion, don't guess at what it "should" say.
 - `examples/*.py` are documentation with executable code, not throwaway
   demos. `tests/test_examples.py` runs every one of them and will fail CI if
   any of them breaks — if you change something an example depends on (a
@@ -61,11 +61,11 @@ Changes go through a pull request, not a direct push to `master`:
 ## Releases
 
 Tags follow `v<version>` matching `pyproject.toml`'s `version`. This project
-is still pre-1.0 alpha (`0.1.0aN`), so a version bump is just a marker for
+is still pre-1.0 alpha (`0.1.1aN`), so a version bump is just a marker for
 "a meaningful batch of work landed," not a stability promise — bump it,
 update `CHANGELOG.md`, tag, push the tag. Not published to PyPI yet; see
 the README's Status section for the current plan.
 
 ## Reporting issues
 
-<https://github.com/tomlee/dataspec/issues>
+<https://github.com/tomlee/omnist/issues>

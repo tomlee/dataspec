@@ -1,6 +1,6 @@
-# dataspec — user guide
+# omnist — user guide
 
-dataspec gives you **one canonical data model** for JSON, YAML, TOML, and XML,
+omnist gives you **one canonical data model** for JSON, YAML, TOML, and XML,
 and a **schema language** to validate and compare shapes over it. The model is
 defined formally in [the model spec](design/model.md); this guide is the
 practical tour; the [API reference](api.md) lists every name with signatures.
@@ -29,7 +29,7 @@ practical tour; the [API reference](api.md) lists every name with signatures.
   reuse and recursion work.
 
 ```python
-from dataspec import parse_schema, doc
+from omnist import parse_schema, doc
 
 s = parse_schema('''
     record User { "name": string, "age" [0,1]: integer }
@@ -44,7 +44,7 @@ s.validate(doc({"name": "Ann"})).ok          # True
 key whose value is a list expands into one edge per item (a repeated label).
 
 ```python
-from dataspec import doc
+from omnist import doc
 
 d = doc({"name": "Ann", "tag": ["x", "y"]})
 d.labels()                 # ['name', 'tag']
@@ -101,7 +101,7 @@ Rules, all from [the model spec](design/model.md):
 Round-tripping back to text:
 
 ```python
-from dataspec import parse_schema, to_dsl
+from omnist import parse_schema, to_dsl
 
 s = parse_schema('record Car { "license": string }\nroot Car')
 to_dsl(s)                  # prints the schema back as DSL
@@ -114,7 +114,7 @@ also as top-level names `STRING`, `INTEGER`, …) and are passed as-is as a
 field's type.
 
 ```python
-from dataspec import schema, record, field, ref, nullable, t
+from omnist import schema, record, field, ref, nullable, t
 
 address = record(field("street", t.string),
                  field("city",   t.string))
@@ -169,7 +169,7 @@ s.normalize()              # merge structurally identical named definitions
 write back. All four formats read into the *same* Document.
 
 ```python
-from dataspec import Doc
+from omnist import Doc
 
 Doc.from_json('{"name": "Ann", "tags": ["x", "y"]}').to_toml()
 Doc.from_yaml("name: Ann\n").to_json()
@@ -183,7 +183,7 @@ no `null`; JSON/XML have no date type) is adjusted, and the adjustment is
 recorded rather than lost silently.
 
 ```python
-from dataspec import doc, WriteReport, WriteError
+from omnist import doc, WriteReport, WriteError
 
 d = doc({"a": 1, "b": None})
 d.to_toml()                          # 'a = 1\n' -- 'b' dropped, silently
@@ -207,13 +207,36 @@ d.check_toml()                       # same report d.to_toml(report=...) would f
 See [the API reference](api.md#adjustment-reports-lossy-writes) for the full
 list of adjustment codes.
 
+### Schema-directed deserialization
+
+JSON/YAML/TOML/XML have no `date`/`time` type, so a temporal field reads back
+as an ISO-8601 string by default. Pass `schema=` to upgrade leaves to match
+what the schema declares — a real `date`/`time`/`datetime` object, or the
+exact numeric type — whenever the conversion is value-exact:
+
+```python
+from omnist import parse_schema, read_json
+
+s = parse_schema('record R { "d": date, "n": number }\nroot R')
+read_json('{"d": "2024-01-01", "n": 3}', schema=s)
+# [('d', datetime.date(2024, 1, 1)), ('n', 3.0)]
+```
+
+A conversion that isn't value-exact (`1.5` into `integer`, `"abc"` into
+`integer`) raises `ParseError` rather than guessing. This is unambiguous by
+construction: every field has exactly one candidate scalar (no unions, no
+enums), so there's never a choice between candidate representations. See
+[the API reference](api.md#schema-directed-deserialization) for the full
+conversion rules and `materialize`, which applies the same upgrade to an
+already-parsed node.
+
 ### Custom formats
 
 Formats are plugins — register your own and it's usable everywhere `Doc` reads
 and writes a format by name:
 
 ```python
-from dataspec import Format, register_format, Doc
+from omnist import Format, register_format, Doc
 
 register_format(Format(
     name="lines",
@@ -228,7 +251,7 @@ Doc.from_format("lines", "1 2 3").to_format("lines")    # '1 2 3'
 `infer(samples)` drafts a schema from example Documents:
 
 ```python
-from dataspec import infer, doc
+from omnist import infer, doc
 
 s = infer([doc({"id": 1, "tags": ["a"]}), doc({"id": 2, "tags": ["b", "c"]})])
 print(s.to_dsl())
@@ -245,7 +268,7 @@ An order schema combining named records, a required array, an optional
 field, and recursion-free reuse — built once, validated across formats.
 
 ```python
-from dataspec import parse_schema, Doc
+from omnist import parse_schema, Doc
 
 ORDER = '''
 record Address  { "street": string, "city": string }

@@ -188,7 +188,7 @@ class _Parser:
 
 
 def parse_schema(text: str) -> Schema:
-    """Parse DSL text into a :class:`~dataspec.canonical.schema.Schema`."""
+    """Parse DSL text into a :class:`~omnist.canonical.schema.Schema`."""
     return _Parser(_tokenize(text)).parse()
 
 

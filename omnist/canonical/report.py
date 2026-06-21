@@ -8,7 +8,7 @@ rather than lost silently.  The same report drives three behaviours:
 * **lenient** (default) — adjust and move on; ignore the report if you like.
 * **inspect** — pass ``report=`` to a writer (or call ``check_*``) to see what
   changed without stopping.
-* **strict** — ``strict=True`` raises :class:`~dataspec.errors.WriteError`
+* **strict** — ``strict=True`` raises :class:`~omnist.errors.WriteError`
   (carrying the report) if anything had to be adjusted.
 
 Each adjustment has a ``severity``: ``"warning"`` (conventional / recoverable —

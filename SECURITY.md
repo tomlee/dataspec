@@ -1,6 +1,6 @@
 # Security Policy
 
-dataspec is **alpha** (see [CONTRIBUTING.md](CONTRIBUTING.md)). There is one
+omnist is **alpha** (see [CONTRIBUTING.md](CONTRIBUTING.md)). There is one
 supported line: `master` / the latest tagged pre-release. Fixes land there;
 older tags don't get backports.
 
@@ -8,14 +8,14 @@ older tags don't get backports.
 
 Please **don't** open a public issue for a security problem. Use GitHub's
 private vulnerability reporting instead:
-<https://github.com/tomlee/dataspec/security/advisories/new>
+<https://github.com/tomlee/omnist/security/advisories/new>
 
 If that's not available to you, open an issue asking for a way to reach the
 maintainer privately, without describing the issue itself.
 
 ## Trust model: what each format assumes about its input
 
-dataspec reads and writes JSON, YAML, TOML, and XML — formats whose parsers
+omnist reads and writes JSON, YAML, TOML, and XML — formats whose parsers
 have a long history of being used as attack surface (entity expansion,
 quadratic blowup, alias bombs, code execution via unsafe deserialization). If
 you call any `read_*` function on input you don't control, the following is
@@ -31,7 +31,7 @@ what's actually been considered and tested, and what hasn't.
   small payload that *looks* like it could expand to billions of elements
   (the "billion laughs" pattern) parses and validates in a fraction of a
   second, because PyYAML shares the underlying object across references and
-  dataspec's own post-parse validation does too — see
+  omnist's own post-parse validation does too — see
   [docs/formats/yaml.md](docs/formats/yaml.md). A genuine cycle (a value that
   contains itself) is rejected with `ParseError`.
 
@@ -56,12 +56,11 @@ what's actually been considered and tested, and what hasn't.
   size limit; if you need one, enforce it before calling `read_*` (e.g. check
   `len(text)` or a `Content-Length` header against a budget you choose).
 
-- **None of the above is fuzzed exhaustively, only sampled.**
-  `tests/test_property.py` runs randomized Documents and text through every
-  codec and the DSL parser on every CI run, which has already found and fixed
-  real bugs, but property-based testing finds *a* bug in a class, not
-  *every* bug in a class. Treat this document as "here's what's been
-  considered," not a guarantee.
+- **None of the above is fuzzed or property-tested against this codebase's
+  current model.** The test suite (`tests/test_canonical.py`) is example- and
+  case-based, not randomized; `hypothesis` is listed as a dev dependency but
+  isn't currently wired into any test. Treat this document as "here's what's
+  been considered and manually verified," not a guarantee backed by fuzzing.
 
 ## Versioning and disclosure
 

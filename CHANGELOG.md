@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.1.1a8]
+
+**Breaking:** the project is renamed from `dataspec` to `omnist` ("omni-structure"),
+before the first PyPI release (no users yet, so this is a clean rename, not a
+deprecation period). `import dataspec` becomes `import omnist`; `DataspecError`
+becomes `OmnistError`. The GitHub repository moves to
+[tomlee/omnist](https://github.com/tomlee/omnist) (GitHub redirects the old
+`tomlee/dataspec` URL). No behavioral changes.
+
 ## [v0.1.1a7]
 
 Schema-directed deserialization: pass `schema=` to `read_json`/`read_yaml`/
@@ -96,9 +105,9 @@ canonical model:
   `get_format` / `formats()` look up / list what's registered. The four
   built-ins register themselves on import.
 
-New: `dataspec.canonical.report` (`WriteReport`, `Adjustment`, `finish_write`)
-and `dataspec.canonical.registry` (`Format`, `register_format`, `get_format`,
-`formats`), both re-exported from `dataspec`. Documented in
+New: `omnist.canonical.report` (`WriteReport`, `Adjustment`, `finish_write`)
+and `omnist.canonical.registry` (`Format`, `register_format`, `get_format`,
+`formats`), both re-exported from `omnist`. Documented in
 [the API reference](docs/api.md#adjustment-reports-lossy-writes) and
 [the guide](docs/guide.md#reading--writing-formats); covered by new tests in
 `tests/test_canonical.py` and `tests/test_docs.py`.
@@ -123,14 +132,14 @@ is a clean break. See [docs/design/model.md](docs/design/model.md).
   (`compatible_with` / `equivalent` / `normalize`) are **methods on `Schema`**.
 - The earlier `compatible_with` soundness bugs cannot recur — the open-map
   `rest` construct that caused them is gone.
-- Implementation lives in `dataspec.canonical`; `import dataspec` is its
+- Implementation lives in `omnist.canonical`; `import omnist` is its
   public surface. Docs rewritten: a new [user guide](docs/guide.md) and the
   formal [model spec](docs/design/model.md).
 
 ## [v0.1.0a9]
 
 Three schema-compatibility/validation soundness bugs, found by comparing
-dataspec's `Schema`/`Type` model against the formal Schema Automaton (SA)
+omnist's `Schema`/`Type` model against the formal Schema Automaton (SA)
 model it's based on (Lee & Cheung, CIKM 2010):
 
 - **Fixed (unsound):** `compatible_with()`/`equivalent()` judged a schema
@@ -240,7 +249,7 @@ examples/property, before and after each change).
   at all, only `date-time` does); now stringified and reported as
   `temporal.stringified`.
 - New: `integer.precision_risk` — a JSON integer beyond JavaScript's
-  safe-integer range (`±2**53`) round-trips exactly through dataspec's
+  safe-integer range (`±2**53`) round-trips exactly through omnist's
   own `read_json`, but silently loses precision in a JS-based parser
   (a browser, Node.js); now reported (the same class of interop risk
   as TOML's existing `integer.out_of_range` check).
@@ -272,7 +281,7 @@ bugs, none caught by the edge-case sweep in v0.1.0a3:
   structure (not a cycle, just YAML's normal way of avoiding
   duplication) took time **exponential** in nesting depth to validate
   — a 469-byte, 9-level payload that `yaml.safe_load` parses instantly
-  didn't finish validating in 15 seconds. The cause was dataspec's own
+  didn't finish validating in 15 seconds. The cause was omnist's own
   post-parse cycle/depth check re-walking a shared subtree once per
   alias reference instead of once per unique object; PyYAML itself
   shares the constructed objects and was never the problem. Now linear
@@ -369,7 +378,7 @@ bugs, none caught by the edge-case sweep in v0.1.0a3:
   reporting (`WriteReport` / `Adjustment`) and an opt-in `strict` mode.
 - `infer()` to draft a schema from example Documents.
 - Schema comparison operations: `compatible_with`, `equivalent`, `normalize`.
-- Full exception hierarchy under `DataspecError`.
+- Full exception hierarchy under `OmnistError`.
 - GitHub Actions CI running the test suite (228 tests) on Python 3.11–3.13.
 - Complete documentation set: concepts, architecture, getting started, the
   `Doc` API, the schema language, format-by-format pages, inference, schema

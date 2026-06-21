@@ -85,7 +85,7 @@ class _Types:
     datetime = DATETIME
 
     def __repr__(self) -> str:
-        return ("dataspec.t — the seven scalars: string, integer, number, "
+        return ("omnist.t — the seven scalars: string, integer, number, "
                 "boolean, date, time, datetime")
 
 

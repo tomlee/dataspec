@@ -6,7 +6,7 @@ them:
 * a label present in every sample with count 1 becomes a required field
   (``[1,1]``); absent in some samples -> ``[0,1]``; seen more than once ->
   an array (``[min,]``);
-* scalar children become one :class:`~dataspec.canonical.schema.Scalar`
+* scalar children become one :class:`~omnist.canonical.schema.Scalar`
   (nullable if any sample was null). Samples disagreeing on scalar shape
   raise, except ``integer``/``number`` mixing, which collapses to
   ``number`` (the one subset relation between scalars) -- see

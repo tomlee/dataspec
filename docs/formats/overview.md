@@ -1,11 +1,11 @@
 # Formats
 
-dataspec reads JSON, YAML, TOML, and XML into **one** canonical Document, and
+omnist reads JSON, YAML, TOML, and XML into **one** canonical Document, and
 writes that Document back out to any of them. Because they share one model,
 converting is just *read one, write another*:
 
 ```python
-from dataspec import Doc
+from omnist import Doc
 Doc.from_json('{"name": "Ann", "tags": ["x", "y"]}').to_toml()
 ```
 
@@ -39,7 +39,7 @@ schema.
 `write_*` project back (same-label edges are grouped into a list).
 
 ```python
-from dataspec import read_yaml, Doc
+from omnist import read_yaml, Doc
 d = Doc(read_yaml("name: Ann\ntags: [x, y]\n"))
 d.to_json()
 ```

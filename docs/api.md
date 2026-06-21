@@ -1,14 +1,14 @@
 # API reference
 
-Everything importable from `import dataspec`. Types: a **Document** is held by a
+Everything importable from `import omnist`. Types: a **Document** is held by a
 `Doc`; a **Schema** is a `root` reference plus named `Record` definitions, where
 a field's type is always exactly one `Scalar` or one `Ref`. See the
 [user guide](guide.md) for narrative and the
 [model spec](design/model.md) for the formal definitions.
 
 ```python
-import dataspec
-dataspec.__version__        # "0.1.1a5"
+import omnist
+omnist.__version__        # "0.1.1a5"
 ```
 
 ---
@@ -100,7 +100,7 @@ the matching kind; object children become nested named records.
 | `t` | the scalar namespace: `t.string`, `t.integer`, `t.number`, `t.boolean`, `t.date`, `t.time`, `t.datetime` — ready-to-use `Scalar` instances, passed as-is as a field's type |
 
 ```python
-from dataspec import schema, record, field, ref, nullable, t
+from omnist import schema, record, field, ref, nullable, t
 s = schema(ref("User"),
            User=record(field("name", t.string),
                        field("note", nullable(t.string), min=0, max=1),
@@ -195,7 +195,7 @@ match what the schema declares, when the conversion is **value-exact** --
 isn't -- `1.5 -> integer`, `"abc" -> integer`:
 
 ```python
-from dataspec import parse_schema, read_json
+from omnist import parse_schema, read_json
 
 s = parse_schema('record R { "d": date, "n": number }\nroot R')
 node = read_json('{"d": "2024-01-01", "n": 3}', schema=s)
@@ -224,7 +224,7 @@ records it. `Doc.to_*` and `write_*` accept the same two options:
 | `report=a_WriteReport` | collect the adjustments into it, without raising |
 
 ```python
-from dataspec import doc, WriteReport, WriteError
+from omnist import doc, WriteReport, WriteError
 
 d = doc({"a": 1, "b": None})
 d.to_toml()                          # 'a = 1\n' -- 'b' dropped, silently
@@ -256,11 +256,11 @@ Formats are plugins. The four built-ins register themselves on import.
 | | |
 |---|---|
 | `register_format(Format(name, read, write, check=None))` | add a format, usable via `Doc.from_format` / `Doc.to_format` / `Doc.check_format` |
-| `get_format(name) -> Format` | look one up by name (raises `DataspecError` if unknown) |
+| `get_format(name) -> Format` | look one up by name (raises `OmnistError` if unknown) |
 | `formats() -> list[str]` | every registered name, sorted |
 
 ```python
-from dataspec import Format, register_format, Doc
+from omnist import Format, register_format, Doc
 
 register_format(Format(
     name="lines",
@@ -283,7 +283,7 @@ simulating a write without producing output. The four built-ins all provide
 
 | | Raised when |
 |---|---|
-| `DataspecError` | base class for all dataspec errors |
+| `OmnistError` | base class for all omnist errors |
 | `SchemaError` | invalid schema text or structure (bad DSL, undefined `Ref`, bad cardinality) |
 | `ParseError` | a document couldn't be read from its format |
 | `DocumentError` | a value isn't a legal Document, or an invalid `Doc` operation |

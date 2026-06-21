@@ -1,6 +1,6 @@
 """Execute the key snippets shown in the docs, so they can't silently rot."""
-import dataspec as ds
-from dataspec import (
+import omnist as ds
+from omnist import (
     Doc,
     Format,
     WriteError,
@@ -26,7 +26,7 @@ def test_readme_at_a_glance():
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.1.1a7"
+    assert ds.__version__ == "0.1.1a8"
 
 
 def test_guide_documents():
@@ -73,6 +73,13 @@ def test_guide_operations_are_methods():
     assert v1.compatible_with(v2)
     assert not v2.compatible_with(v1)
     assert not v1.equivalent(v2)
+
+
+def test_readme_schema_directed_deserialization():
+    import datetime
+    s2 = parse_schema('record R { "d": date }\nroot R')
+    assert read_json('{"d": "2024-01-01"}', schema=s2) == \
+        [("d", datetime.date(2024, 1, 1))]
 
 
 def test_guide_infer():
@@ -128,7 +135,7 @@ def test_example_rejected_order():
 
 
 def test_formats_docs_snippets():
-    from dataspec import write_json
+    from omnist import write_json
     assert write_json([("tag", "x"), ("tag", "y")]) == '{"tag": ["x", "y"]}'
     assert write_json([("tag", "x")]) == '{"tag": "x"}'
     assert read_xml("<t><m>a</m><x>1</x><m>b</m></t>") == \

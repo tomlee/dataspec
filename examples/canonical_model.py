@@ -3,12 +3,12 @@
 record/Ref schema with exactly seven scalars, field cardinality, validation,
 operations, and codecs.
 
-This exercises ``dataspec.canonical`` — the implementation of the design in
+This exercises ``omnist.canonical`` — the implementation of the design in
 ``docs/design/model.md``.  It lives alongside the current v0.1 package.
 
 Run: python3 examples/canonical_model.py
 """
-from dataspec import (
+from omnist import (
     Doc,
     doc,
     parse_schema,

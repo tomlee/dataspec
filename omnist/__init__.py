@@ -1,4 +1,4 @@
-"""dataspec — one canonical data model, many formats.
+"""omnist — one canonical data model, many formats.
 
 A **Document** is a *tree*: an ordered list of labeled edges (repeated
 labels are how arrays appear), held by a :class:`Doc`.  A **Schema** describes
@@ -9,7 +9,7 @@ optionally nullable, or a reference to a named record — never a composed
 value-domain (no enums, no literal-valued fields). Read a format into a
 ``Doc``, validate it against a ``Schema``, and write it back to any format.
 
-    from dataspec import parse_schema, doc
+    from omnist import parse_schema, doc
 
     s = parse_schema('''
         record Member { "name": string, "role": string }
@@ -19,7 +19,7 @@ value-domain (no enums, no literal-valued fields). Read a format into a
     s.validate(doc({"name": "X", "members": [{"name": "Ann", "role": "dev"}]})).ok
 
 The model is defined formally in ``docs/design/model.md``.  The implementation
-lives in :mod:`dataspec.canonical`; this module is its public surface.
+lives in :mod:`omnist.canonical`; this module is its public surface.
 """
 
 from .canonical.deserialize import materialize
@@ -65,20 +65,20 @@ from .canonical.schema import (
     t,
 )
 from .errors import (
-    DataspecError,
     DetachedNode,
     DocumentError,
+    OmnistError,
     ParseError,
     SchemaError,
     UnsafeXMLWarning,
     WriteError,
 )
 
-__version__ = "0.1.1a7"
+__version__ = "0.1.1a8"
 
 __all__ = [
     # errors
-    "DataspecError", "SchemaError", "ParseError", "WriteError", "DocumentError",
+    "OmnistError", "SchemaError", "ParseError", "WriteError", "DocumentError",
     "DetachedNode", "UnsafeXMLWarning",
     # document
     "Doc", "doc",

@@ -3,7 +3,7 @@
 The baseline format — no dependencies (uses the standard-library `json`).
 
 ```python
-from dataspec import read_json, write_json, Doc
+from omnist import read_json, write_json, Doc
 
 d = Doc.from_json('{"name": "Ann", "tags": ["x", "y"]}')
 d.to_json()                      # '{"name": "Ann", "tags": ["x", "y"]}'

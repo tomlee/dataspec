@@ -3,7 +3,7 @@
 The JSON-compatible core of YAML. Needs `pip install pyyaml`.
 
 ```python
-from dataspec import read_yaml, Doc
+from omnist import read_yaml, Doc
 
 d = Doc(read_yaml("""
 name: Ann
