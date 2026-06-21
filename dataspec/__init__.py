@@ -2,14 +2,17 @@
 
 A **Document** is a *tree*: an ordered list of labeled edges (repeated
 labels are how arrays appear), held by a :class:`Doc`.  A **Schema** describes
-the shape a Document may have, as ``record`` / ``union`` definitions referenced
-by name.  Read a format into a ``Doc``, validate it against a ``Schema``, and
-write it back to any format.
+the shape a Document may have, as ``record`` definitions referenced by name.
+A field's value side is always exactly one of the seven scalars (``string``,
+``integer``, ``number``, ``boolean``, ``date``, ``time``, ``datetime``),
+optionally nullable, or a reference to a named record — never a composed
+value-domain (no enums, no literal-valued fields). Read a format into a
+``Doc``, validate it against a ``Schema``, and write it back to any format.
 
     from dataspec import parse_schema, doc
 
     s = parse_schema('''
-        record Member { "name": string, "role": "dev" | "pm" }
+        record Member { "name": string, "role": string }
         record Team   { "name": string, "members" [1,]: Member }
         root Team
     ''')
@@ -50,15 +53,15 @@ from .canonical.schema import (
     Field,
     Record,
     Ref,
+    Scalar,
     Schema,
-    Union,
     ValidationResult,
     field,
+    nullable,
     record,
     ref,
     schema,
     t,
-    union,
 )
 from .errors import (
     DataspecError,
@@ -70,7 +73,7 @@ from .errors import (
     WriteError,
 )
 
-__version__ = "0.1.1a5"
+__version__ = "0.1.1a6"
 
 __all__ = [
     # errors
@@ -79,9 +82,9 @@ __all__ = [
     # document
     "Doc", "doc",
     # schema model
-    "Schema", "Record", "Union", "Ref", "Field", "ValidationResult", "Error",
+    "Schema", "Record", "Scalar", "Ref", "Field", "ValidationResult", "Error",
     # builders
-    "record", "union", "field", "ref", "schema", "t",
+    "record", "ref", "field", "schema", "nullable", "t",
     "STRING", "INTEGER", "NUMBER", "BOOLEAN", "DATE", "TIME", "DATETIME",
     # dsl
     "parse_schema", "to_dsl",

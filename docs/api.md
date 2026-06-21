@@ -1,8 +1,9 @@
 # API reference
 
 Everything importable from `import dataspec`. Types: a **Document** is held by a
-`Doc`; a **Schema** is a `root` reference plus named definitions (`Record` /
-`Union`). See the [user guide](guide.md) for narrative and the
+`Doc`; a **Schema** is a `root` reference plus named `Record` definitions, where
+a field's type is always exactly one `Scalar` or one `Ref`. See the
+[user guide](guide.md) for narrative and the
 [model spec](design/model.md) for the formal definitions.
 
 ```python
@@ -73,7 +74,7 @@ plain value).
 ## Schemas
 
 ### `parse_schema(text) -> Schema`
-Parse DSL text (`record` / `union` / `root`) into a `Schema`. Raises
+Parse DSL text (`record` / `root`) into a `Schema`. Raises
 `SchemaError` on malformed text or an undefined reference. See the
 [DSL section of the guide](guide.md#schemas--the-dsl).
 
@@ -84,31 +85,32 @@ to `s`.
 ### `infer(samples, root_name="Root") -> Schema`
 Draft a schema from example Documents (`Doc`s or plain values). Cardinality
 follows observed counts (present in every sample → required; sometimes absent →
-optional; seen more than once → array); scalar children become unions; object
-children become nested named records.
+optional; seen more than once → array); scalar children become a `Scalar` of
+the matching kind; object children become nested named records.
 
 ### The Python builder
 
 | Function | Builds |
 |---|---|
 | `record(*fields) -> Record` | a closed record from `Field`s |
-| `field(label, type, min=1, max=1) -> Field` | one field; `max=None` is unbounded |
-| `union(*members, null=False) -> Union` | a value domain from kind atoms (`t.string`) and/or literal values |
-| `ref(name) -> Ref` | a reference to a named definition |
+| `field(label, type, min=1, max=1) -> Field` | one field; `type` is a `Scalar` (e.g. `t.string`) or a `Ref`; `max=None` is unbounded |
+| `nullable(scalar) -> Scalar` | a copy of `scalar` that also accepts `null` (the `?` form) |
+| `ref(name) -> Ref` | a reference to a named record |
 | `schema(root, **env) -> Schema` | assemble a `Schema` (`root` is a `Ref` or a name string) |
-| `t` | the scalar-kind namespace: `t.string`, `t.integer`, `t.number`, `t.boolean`, `t.date`, `t.time`, `t.datetime` |
+| `t` | the scalar namespace: `t.string`, `t.integer`, `t.number`, `t.boolean`, `t.date`, `t.time`, `t.datetime` — ready-to-use `Scalar` instances, passed as-is as a field's type |
 
 ```python
-from dataspec import schema, record, union, field, ref, t
+from dataspec import schema, record, field, ref, nullable, t
 s = schema(ref("User"),
-           User=record(field("name", union(t.string)),
-                       field("tags", union(t.string), min=0, max=None)))
+           User=record(field("name", t.string),
+                       field("note", nullable(t.string), min=0, max=1),
+                       field("tags", t.string, min=0, max=None)))
 ```
 
 ### `class Schema`
-`Schema(root: Ref, env: dict[str, Definition] = None)` — a root reference plus
-named definitions. Raises `SchemaError` if a reference is undefined or the root
-doesn't resolve to a record.
+`Schema(root: Ref, env: dict[str, Record] = None)` — a root reference plus
+named record definitions. Raises `SchemaError` if a reference is undefined or
+the root doesn't resolve to a record.
 
 | Method | |
 |---|---|
@@ -118,8 +120,8 @@ doesn't resolve to a record.
 | `.equivalent(other) -> bool` | both accept exactly the same documents |
 | `.normalize() -> Schema` | merge structurally-identical named definitions |
 | `.to_dsl() -> str` | serialize back to DSL |
-| `.root`, `.env` | the root `Ref` and the name→definition map |
-| `.resolve(t) -> Definition` | follow a `Ref` chain to a `Record` or `Union` |
+| `.root`, `.env` | the root `Ref` and the name→record map |
+| `.resolve(t) -> Record` | follow a `Ref` chain to a `Record` |
 
 ### Definition & type classes
 
@@ -128,12 +130,14 @@ These are produced by the DSL and builder; you can also construct them directly.
 - **`Record(fields: list[Field])`** — a closed record. `.fields`;
   `.field(label) -> Field | None`.
 - **`Field(label, type, min=1, max=1)`** — one labeled edge rule. `.label`,
-  `.type` (a `Ref` or `Union`), `.min`, `.max` (`None` = unbounded).
-- **`Union(kinds=(), literals=(), null=False)`** — a value domain. `kinds` is a
-  set of kind atoms (`STRING`, …), `literals` a set of values, `null` a bool.
-- **`Ref(name)`** — a reference to a definition in the schema's `env`.
-- Kind atoms: `STRING`, `INTEGER`, `NUMBER`, `BOOLEAN`, `DATE`, `TIME`,
-  `DATETIME` (also under `t.*`).
+  `.type` (a `Scalar` or a `Ref`), `.min`, `.max` (`None` = unbounded).
+- **`Scalar(name, nullable=False)`** — one of the seven fixed value types,
+  optionally nullable; never composed with another kind or a literal value.
+  `.name` (one of `"string"`, `"integer"`, `"number"`, `"boolean"`, `"date"`,
+  `"time"`, `"datetime"`), `.nullable` (bool).
+- **`Ref(name)`** — a reference to a named record in the schema's `env`.
+- Ready-to-use instances: `STRING`, `INTEGER`, `NUMBER`, `BOOLEAN`, `DATE`,
+  `TIME`, `DATETIME` (also under `t.*`).
 
 ---
 

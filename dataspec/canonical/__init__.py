@@ -6,8 +6,9 @@ described in ``docs/design/model.md``:
 * :mod:`~dataspec.canonical.document` — the Document as an ordered list of
   labeled edges, not a dict-with-arrays.
 * :mod:`~dataspec.canonical.schema` — the Schema as ``Record`` (labels) /
-  ``Union`` (values) / ``Ref``, with field cardinality, plus conformance.
-* :mod:`~dataspec.canonical.dsl` — the ``record`` / ``union`` text syntax.
+  ``Scalar`` (one of seven, never composed) / ``Ref``, with field
+  cardinality, plus conformance.
+* :mod:`~dataspec.canonical.dsl` — the ``record`` text syntax.
 * :mod:`~dataspec.canonical.operations` — ``compatible_with`` / ``equivalent``
   / ``normalize`` on the new model.
 
@@ -49,22 +50,23 @@ from .schema import (
     Field,
     Record,
     Ref,
+    Scalar,
     Schema,
-    Union,
     ValidationResult,
     field,
+    nullable,
     record,
     ref,
     schema,
-    union,
+    t,
 )
 
 _rb()
 
 __all__ = [
     "Doc", "doc",
-    "Schema", "Record", "Union", "Ref", "Field", "ValidationResult",
-    "record", "union", "ref", "field", "schema",
+    "Schema", "Record", "Scalar", "Ref", "Field", "ValidationResult",
+    "record", "ref", "field", "schema", "nullable", "t",
     "STRING", "INTEGER", "NUMBER", "BOOLEAN", "DATE", "TIME", "DATETIME",
     "parse_schema", "to_dsl",
     "compatible_with", "equivalent", "normalize", "infer",

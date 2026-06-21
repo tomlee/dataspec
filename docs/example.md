@@ -6,7 +6,7 @@ snippet here is verified against the library.
 
 ## The schema
 
-An order: an id, a status (enum), a total, a shipping address, one or more line
+An order: an id, a status, a total, a shipping address, one or more line
 items, and an optional coupon. The whole thing sits under a single top-level
 `order` key — that makes it *single-rooted*, so the **same** Document comes back
 from JSON, YAML, TOML, **and** XML (XML always has one document element; see
@@ -18,7 +18,7 @@ record LineItem { "sku": string, "qty": integer, "price": number }
 
 record Order {
     "id":      string,
-    "status":  "pending" | "shipped" | "cancelled",
+    "status":  string,
     "total":   number,
     "address": Address,
     "items" [1,]: LineItem,        # at least one line item
@@ -32,18 +32,18 @@ root Root
 The same schema with the Python builder:
 
 ```python
-from dataspec import schema, record, union, field, ref, t
+from dataspec import schema, record, field, ref, t
 
-address  = record(field("street", union(t.string)), field("city", union(t.string)))
-lineitem = record(field("sku", union(t.string)), field("qty", union(t.integer)),
-                  field("price", union(t.number)))
+address  = record(field("street", t.string), field("city", t.string))
+lineitem = record(field("sku", t.string), field("qty", t.integer),
+                  field("price", t.number))
 order = record(
-    field("id",      union(t.string)),
-    field("status",  union("pending", "shipped", "cancelled")),
-    field("total",   union(t.number)),
+    field("id",      t.string),
+    field("status",  t.string),
+    field("total",   t.number),
     field("address", ref("Address")),
     field("items",   ref("LineItem"), min=1, max=None),   # [1,]
-    field("coupon",  union(t.string), min=0, max=1),       # optional
+    field("coupon",  t.string, min=0, max=1),              # optional
 )
 s = schema(ref("Root"),
            Root=record(field("order", ref("Order"))),
@@ -118,12 +118,12 @@ Validation reports every problem, at its exact path:
 
 ```python
 bad = Doc.from_json('''
-{"order": {"id": "A2", "status": "lost", "total": 10,
+{"order": {"id": "A2", "status": "shipped", "total": "ten",
   "address": {"street": "x", "city": "y"}, "items": []}}
 ''')
 print(s.validate(bad))
 # invalid:
-#   at $.order.status: 'lost' is not in union{'cancelled', 'pending', 'shipped'}
+#   at $.order.total: expected number, got string ('ten')
 #   at $.order: field 'items' occurs 0 time(s), expected at least 1
 ```
 

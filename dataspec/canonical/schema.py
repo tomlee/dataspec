@@ -3,60 +3,78 @@
 * **Record** — a closed set of fields, each ``(label, type, cardinality)``;
   constrained by its child labels.  Cardinality is the *unordered* number of
   times a label may appear.
-* **Union** — a value domain: a set of members, each a *kind* (string, integer,
-  …), a *literal*, or ``null``; constrained by the value.
-* **Ref** — a pointer into the schema's named environment; enables reuse and
-  recursion.
+* **Scalar** — one of exactly seven predefined value types (``string``,
+  ``integer``, ``number``, ``boolean``, ``date``, ``time``, ``datetime``),
+  optionally nullable.  There is no user-declared scalar/value-domain
+  composition — a field's value side is always exactly one of the seven, never
+  a union, an enum, or a literal.  (See ``docs/design/model.md`` for why: a
+  composable value-domain made schema-directed deserialization ambiguous — a
+  value could satisfy more than one candidate representation with no
+  principled way to choose.)
+* **Ref** — a pointer into the schema's named environment (records only);
+  enables reuse and recursion.
 
-A field's ``type`` is a ``Ref`` (to a named record or union) or an inline
-``Union``.  There are no inline records and no separate array type — "array" is
-just a field with cardinality ``max > 1``.  Validation ignores order.
+A field's ``type`` is a ``Ref`` (to a named record) or a ``Scalar``.  There
+are no inline records and no separate array type — "array" is just a field
+with cardinality ``max > 1``.  Validation ignores order.
 """
 
 from __future__ import annotations
 
 import datetime as _dt
-from typing import Any, Dict, List, NamedTuple, Optional
-from typing import Union as _U
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 from ..errors import SchemaError
 
+SCALAR_NAMES = {"string", "integer", "number", "boolean", "date", "time", "datetime"}
 
-class Kind:
-    """A scalar kind atom (``string``, ``integer``, …) — a sentinel distinct
-    from a string literal, so a Union can hold both unambiguously."""
-    __slots__ = ("name",)
 
-    def __init__(self, name: str) -> None:
+# ---------------------------------------------------------------------------
+# Types
+# ---------------------------------------------------------------------------
+
+class Scalar:
+    """One of the seven predefined value types, optionally nullable.
+
+    ``STRING``, ``INTEGER``, … (also under ``t.*``) are ready-to-use,
+    non-nullable instances — a field's type can be one of them directly,
+    with no wrapping needed.  Use :func:`nullable` for the ``?`` form.
+    """
+    __slots__ = ("name", "nullable")
+
+    def __init__(self, name: str, nullable: bool = False) -> None:
+        if name not in SCALAR_NAMES:
+            raise SchemaError(f"unknown scalar {name!r}; expected one of "
+                              f"{sorted(SCALAR_NAMES)}")
         self.name = name
+        self.nullable = bool(nullable)
 
     def __repr__(self) -> str:
-        return self.name
+        return f"{self.name}{'?' if self.nullable else ''}"
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, Kind) and other.name == self.name
+        return (isinstance(other, Scalar) and other.name == self.name
+                and other.nullable == self.nullable)
 
     def __hash__(self) -> int:
-        return hash(("Kind", self.name))
+        return hash((Scalar, self.name, self.nullable))
 
 
-STRING = Kind("string")
-INTEGER = Kind("integer")
-NUMBER = Kind("number")
-BOOLEAN = Kind("boolean")
-DATE = Kind("date")
-TIME = Kind("time")
-DATETIME = Kind("datetime")
-
-SCALAR_KINDS = {STRING, INTEGER, NUMBER, BOOLEAN, DATE, TIME, DATETIME}
-_KIND_BY_NAME = {k.name: k for k in SCALAR_KINDS}
+STRING = Scalar("string")
+INTEGER = Scalar("integer")
+NUMBER = Scalar("number")
+BOOLEAN = Scalar("boolean")
+DATE = Scalar("date")
+TIME = Scalar("time")
+DATETIME = Scalar("datetime")
 
 
 class _Types:
-    """Scalar kind atoms under one namespace: ``t.string``, ``t.integer``, …
+    """The seven scalars under one namespace: ``t.string``, ``t.integer``, …
 
     Namespaced so they never shadow builtins or the stdlib ``datetime`` names.
-    Use them in the Python builder, e.g. ``union(t.string, null=True)``.
+    Each is a ready-to-use :class:`Scalar` — pass it directly as a field's
+    type, e.g. ``field("name", t.string)``.
     """
     string = STRING
     integer = INTEGER
@@ -67,57 +85,20 @@ class _Types:
     datetime = DATETIME
 
     def __repr__(self) -> str:
-        return ("dataspec.t — scalar kinds: string, integer, number, boolean, "
-                "date, time, datetime")
+        return ("dataspec.t — the seven scalars: string, integer, number, "
+                "boolean, date, time, datetime")
 
 
 t = _Types()
 
 
-def kind_by_name(name: str) -> Kind:
-    try:
-        return _KIND_BY_NAME[name]
-    except KeyError:
-        raise SchemaError(f"unknown scalar kind {name!r}") from None
-
-
-# ---------------------------------------------------------------------------
-# Types
-# ---------------------------------------------------------------------------
-
-class Union:
-    """A value domain: kinds ∪ literals ∪ (null?)."""
-
-    __slots__ = ("kinds", "literals", "null")
-
-    def __init__(self, kinds=(), literals=(), null: bool = False) -> None:
-        ks = frozenset(kinds)
-        bad = ks - SCALAR_KINDS
-        if bad:
-            raise SchemaError(f"unknown scalar kind(s): {sorted(repr(b) for b in bad)}")
-        self.kinds: frozenset = ks
-        self.literals: frozenset = frozenset(literals)
-        self.null: bool = bool(null)
-        if not (self.kinds or self.literals or self.null):
-            raise SchemaError("a union must have at least one member")
-
-    def __repr__(self) -> str:
-        parts = [k.name for k in sorted(self.kinds, key=lambda k: k.name)]
-        parts += [repr(v) for v in sorted(self.literals, key=repr)]
-        if self.null:
-            parts.append("null")
-        return "union{" + ", ".join(parts) + "}"
-
-    def __eq__(self, other: Any) -> bool:
-        return (isinstance(other, Union) and other.kinds == self.kinds
-                and other.literals == self.literals and other.null == self.null)
-
-    def __hash__(self) -> int:
-        return hash((Union, self.kinds, self.literals, self.null))
+def nullable(scalar: Scalar) -> Scalar:
+    """A copy of ``scalar`` that also accepts ``null`` (the ``?`` form)."""
+    return scalar if scalar.nullable else Scalar(scalar.name, True)
 
 
 class Ref:
-    """A reference to a named definition (record or union)."""
+    """A reference to a named record."""
 
     __slots__ = ("name",)
 
@@ -134,7 +115,7 @@ class Ref:
         return hash((Ref, self.name))
 
 
-Type = _U[Ref, Union]
+Type = Union[Ref, Scalar]
 
 
 class Field:
@@ -145,8 +126,8 @@ class Field:
 
     def __init__(self, label: str, type: Type, min: int = 1,
                  max: Optional[int] = 1) -> None:
-        if not isinstance(type, (Ref, Union)):
-            raise SchemaError(f"field {label!r} type must be a Ref or Union, got {type!r}")
+        if not isinstance(type, (Ref, Scalar)):
+            raise SchemaError(f"field {label!r} type must be a Ref or Scalar, got {type!r}")
         if min < 0 or (max is not None and max < min):
             raise SchemaError(f"field {label!r} has an invalid cardinality [{min},{max}]")
         self.label = label
@@ -191,9 +172,6 @@ class Record:
         return "record{" + ", ".join(repr(f) for f in self.fields) + "}"
 
 
-Definition = _U[Record, Union]
-
-
 # ---------------------------------------------------------------------------
 # Validation result
 # ---------------------------------------------------------------------------
@@ -231,17 +209,20 @@ class ValidationResult:
 # ---------------------------------------------------------------------------
 
 class Schema:
-    """A schema: a root reference plus an environment of named definitions."""
+    """A schema: a root reference plus an environment of named records."""
 
-    def __init__(self, root: Ref, env: Optional[Dict[str, Definition]] = None) -> None:
+    def __init__(self, root: Ref, env: Optional[Dict[str, Record]] = None) -> None:
         if not isinstance(root, Ref):
             raise SchemaError("a schema root must be a Ref to a named record")
         self.root = root
-        self.env: Dict[str, Definition] = dict(env or {})
+        self.env: Dict[str, Record] = dict(env or {})
         self.check_refs()
 
-    def resolve(self, t: Type) -> Definition:
-        """Follow a chain of Refs to a concrete Record or Union."""
+    def resolve(self, t: Type) -> Union[Record, Scalar]:
+        """A bare ``Scalar`` resolves to itself; a ``Ref`` chain follows the
+        environment to its concrete ``Record``."""
+        if isinstance(t, Scalar):
+            return t
         seen = set()
         while isinstance(t, Ref):
             if t.name in seen:
@@ -254,15 +235,12 @@ class Schema:
 
     def check_refs(self) -> None:
         def walk(t: Type) -> None:
-            if isinstance(t, Ref):
-                if t.name not in self.env:
-                    raise SchemaError(f"unknown type {t.name!r}")
+            if isinstance(t, Ref) and t.name not in self.env:
+                raise SchemaError(f"unknown type {t.name!r}")
         walk(self.root)
-        for d in self.env.values():
-            if isinstance(d, Record):
-                for f in d.fields:
-                    walk(f.type)
-        # the root must resolve to a record (single-rooted)
+        for rec in self.env.values():
+            for f in rec.fields:
+                walk(f.type)
         if not isinstance(self.resolve(self.root), Record):
             raise SchemaError("the schema root must resolve to a record")
 
@@ -280,17 +258,22 @@ class Schema:
 
     def _conform(self, doc, t: Type, res: ValidationResult) -> None:
         d = self.resolve(t)
-        if isinstance(d, Union):
-            self._conform_union(doc, d, res)
+        if isinstance(d, Scalar):
+            self._conform_scalar(doc, d, res)
         else:
             self._conform_record(doc, d, res)
 
-    def _conform_union(self, doc, u: Union, res: ValidationResult) -> None:
+    def _conform_scalar(self, doc, s: Scalar, res: ValidationResult) -> None:
         if not doc.is_leaf:
-            res.add(doc.path, f"expected a value ({u}), got an object")
+            res.add(doc.path, f"expected a {s.name} value, got an object")
             return
-        if not value_in_union(doc.value, u):
-            res.add(doc.path, f"{doc.value!r} is not in {u}")
+        v = doc.value
+        if v is None:
+            if not s.nullable:
+                res.add(doc.path, "null not allowed here")
+            return
+        if not matches_kind(v, s.name):
+            res.add(doc.path, f"expected {s.name}, got {_typename(v)} ({v!r})")
 
     def _conform_record(self, doc, rec: Record, res: ValidationResult) -> None:
         if doc.is_leaf:
@@ -323,7 +306,7 @@ class Schema:
         return equivalent(self, other)
 
     def normalize(self) -> "Schema":
-        """An equivalent schema with structurally-identical named definitions
+        """An equivalent schema with structurally-identical named records
         merged."""
         from .operations import normalize
         return normalize(self)
@@ -338,44 +321,29 @@ class Schema:
 
 
 # ---------------------------------------------------------------------------
-# Value-domain membership
+# Value matching
 # ---------------------------------------------------------------------------
 
-def value_in_union(value: Any, u: Union) -> bool:
-    if value is None:
-        return u.null
-    if any(_same_literal(value, lit) for lit in u.literals):
-        return True
-    return any(matches_kind(value, k) for k in u.kinds)
-
-
-def _same_literal(a: Any, b: Any) -> bool:
-    # Exact match that never lets True == 1 (or 1 == True) cross the bool line.
-    if isinstance(a, bool) or isinstance(b, bool):
-        return isinstance(a, bool) and isinstance(b, bool) and a == b
-    return a == b
-
-
-def matches_kind(value: Any, k: Kind) -> bool:
-    if k == STRING:
+def matches_kind(value: Any, name: str) -> bool:
+    if name == "string":
         return isinstance(value, str)
-    if k == BOOLEAN:
+    if name == "boolean":
         return isinstance(value, bool)
-    if k == INTEGER:
+    if name == "integer":
         return isinstance(value, int) and not isinstance(value, bool)
-    if k == NUMBER:
+    if name == "number":
         return isinstance(value, (int, float)) and not isinstance(value, bool)
-    if k == DATE:
+    if name == "date":
         if isinstance(value, _dt.datetime):
             return False
         if isinstance(value, _dt.date):
             return True
         return _is_iso(value, _dt.date)
-    if k == TIME:
+    if name == "time":
         if isinstance(value, _dt.time):
             return True
         return _is_iso(value, _dt.time)
-    if k == DATETIME:
+    if name == "datetime":
         if isinstance(value, _dt.datetime):
             return True
         # datetime.fromisoformat is lenient: a bare date-only string ("2024-
@@ -396,21 +364,32 @@ def _is_iso(value: Any, cls) -> bool:
         return False
 
 
+def value_kind(v: Any) -> str:
+    """The most specific scalar name a Python value matches, for inference
+    and error messages (``integer`` is reported even though it also matches
+    ``number`` — callers needing the wider check use :func:`matches_kind`)."""
+    if isinstance(v, bool):
+        return "boolean"
+    if isinstance(v, int):
+        return "integer"
+    if isinstance(v, float):
+        return "number"
+    if isinstance(v, _dt.datetime):
+        return "datetime"
+    if isinstance(v, _dt.date):
+        return "date"
+    if isinstance(v, _dt.time):
+        return "time"
+    return "string"
+
+
+def _typename(v: Any) -> str:
+    return "null" if v is None else value_kind(v)
+
+
 # ---------------------------------------------------------------------------
 # Python builders
 # ---------------------------------------------------------------------------
-
-def union(*members: Any, null: bool = False) -> Union:
-    """Build a Union from kind atoms and/or literal values.
-
-    ``union(STRING, null=True)`` — any string, or null.
-    ``union("auto", "manual")`` — exactly those two literals.
-    ``union(INTEGER, "unknown")`` — any integer, or the literal ``"unknown"``.
-    """
-    kinds = [m for m in members if isinstance(m, Kind)]
-    literals = [m for m in members if not isinstance(m, Kind)]
-    return Union(kinds=kinds, literals=literals, null=null)
-
 
 def field(label: str, type: Type, min: int = 1, max: Optional[int] = 1) -> Field:
     return Field(label, type, min, max)
@@ -424,6 +403,6 @@ def ref(name: str) -> Ref:
     return Ref(name)
 
 
-def schema(root: _U[Ref, str], **env: Definition) -> Schema:
+def schema(root: Union[Ref, str], **env: Record) -> Schema:
     r = Ref(root) if isinstance(root, str) else root
     return Schema(r, env)

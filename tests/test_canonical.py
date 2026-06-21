@@ -1,7 +1,8 @@
 """Tests for the canonical (redesigned) Document and Schema models.
 
-Covers the design in docs/design/model.md: edge-list Document, record/union/Ref
-schema, field cardinality, conformance, the DSL, operations, and codecs.
+Covers the design in docs/design/model.md: edge-list Document, record/Ref
+schema with exactly seven scalars, field cardinality, conformance, the DSL,
+operations, and codecs.
 """
 import datetime
 
@@ -32,7 +33,6 @@ from dataspec.canonical import (
     register_format,
     schema,
     to_dsl,
-    union,
     write_json,
     write_toml,
     write_xml,
@@ -52,23 +52,23 @@ class TestPublicApi:
         import dataspec as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.1.1a5"
+        assert ds.__version__ == "0.1.1a6"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_dsl(s)))
-        wide = ds.parse_schema('record R { "n": integer | string, "s": string? }\nroot R')
+        wide = ds.parse_schema('record R { "n": number, "s": string? }\nroot R')
         assert s.compatible_with(wide)
         assert s.normalize().equivalent(s)
-        # the t namespace builds unions
-        u = ds.union(ds.t.integer, "unknown")
-        b = ds.schema(ds.ref("R"), R=ds.record(ds.field("v", u)))
+        # the t namespace, used directly as a field's type -- no wrapping
+        b = ds.schema(ds.ref("R"), R=ds.record(ds.field("v", ds.nullable(ds.t.integer))))
         assert b.validate(ds.doc({"v": 7})).ok
-        assert b.validate(ds.doc({"v": "unknown"})).ok
+        assert b.validate(ds.doc({"v": None})).ok
         assert not b.validate(ds.doc({"v": "other"})).ok
 
     def test_old_names_are_gone(self):
         import dataspec as ds
-        for name in ("obj", "arr", "ObjectType", "ArrayType", "ScalarType", "mapping"):
+        for name in ("obj", "arr", "ObjectType", "ArrayType", "ScalarType", "mapping",
+                     "Union", "union"):
             assert not hasattr(ds, name), f"{name} should be removed (clean break)"
 
 
@@ -142,6 +142,24 @@ class TestInfer:
         for sm in samples:
             assert s.validate(sm).ok
 
+    def test_conflicting_scalars_raise(self):
+        from dataspec.canonical import infer
+        with pytest.raises(SchemaError):
+            infer([doc({"v": 1}), doc({"v": "x"})])
+
+    def test_null_only_field_infers_nullable_string(self):
+        from dataspec.canonical import infer
+        s = infer([doc({"v": None}), doc({"v": None})])
+        assert s.validate(doc({"v": None})).ok
+        assert s.validate(doc({"v": "anything"})).ok
+
+    def test_null_alongside_a_kind_is_orthogonal(self):
+        from dataspec.canonical import infer
+        s = infer([doc({"v": 1}), doc({"v": None})])
+        assert s.validate(doc({"v": 7})).ok
+        assert s.validate(doc({"v": None})).ok
+        assert not s.validate(doc({"v": "x"})).ok
+
 
 # ----------------------------------------------------------- DSL + validation
 def valid(dsl, data):
@@ -177,19 +195,17 @@ class TestValidation:
         assert valid(s3, {"xs": [1, 2]}).ok
         assert not valid(s3, {"xs": [1]}).ok
 
-    def test_enum_and_nullable(self):
-        s = 'record R { "status": "open" | "closed" }\nroot R'
-        assert valid(s, {"status": "open"}).ok
-        assert not valid(s, {"status": "other"}).ok
+    def test_nullable(self):
         s2 = 'record R { "note": string? }\nroot R'
         assert valid(s2, {"note": None}).ok
         assert valid(s2, {"note": "hi"}).ok
+        assert not valid(s2, {"note": 1}).ok
 
-    def test_kind_plus_literal_union(self):
-        s = 'record R { "v": integer | "unknown" }\nroot R'
+    def test_integer_satisfies_number(self):
+        s = 'record R { "v": number }\nroot R'
         assert valid(s, {"v": 7}).ok
-        assert valid(s, {"v": "unknown"}).ok
-        assert not valid(s, {"v": "other"}).ok
+        assert valid(s, {"v": 7.5}).ok
+        assert not valid(s, {"v": "x"}).ok
 
     def test_ref_and_recursion(self):
         s = ('record Node { "value": integer, "kids" [0,]: Node }\nroot Node')
@@ -200,12 +216,14 @@ class TestValidation:
         with pytest.raises(SchemaError):
             parse_schema('record A { "x": integer }\nrecord R { "a": A? }\nroot R')
 
-    def test_named_union(self):
-        s = ('union License { "auto", "manual", null }\n'
-             'record Car { "license": License }\nroot Car')
-        assert valid(s, {"license": "auto"}).ok
-        assert valid(s, {"license": None}).ok
-        assert not valid(s, {"license": "other"}).ok
+    def test_enum_syntax_is_rejected(self):
+        # value-domain composition (enums/literals) is no longer parseable
+        with pytest.raises(SchemaError):
+            parse_schema('record R { "status": "open" | "closed" }\nroot R')
+
+    def test_union_keyword_is_rejected(self):
+        with pytest.raises(SchemaError):
+            parse_schema('union License { "auto", "manual" }\nrecord R { "a": integer }\nroot R')
 
 
 # ----------------------------------------------------- DSL parser robustness
@@ -233,10 +251,6 @@ class TestDslRobustness:
         # builtin scalar, never a Ref to this record
         with pytest.raises(SchemaError):
             parse_schema('record string { "x": integer }\nrecord R { "a": string }\nroot R')
-
-    def test_union_named_a_scalar_keyword_is_rejected(self):
-        with pytest.raises(SchemaError):
-            parse_schema('union integer { "a", "b" }\nrecord R { "a": string }\nroot R')
 
     def test_record_named_a_non_scalar_word_is_fine(self):
         s = parse_schema('record Address { "city": string }\nrecord R { "a": Address }\nroot R')
@@ -291,13 +305,12 @@ class TestTemporalBoundary:
 DSL_CASES = [
     'record R { "n": integer }\nroot R',
     'record R { "n": integer, "s": string? }\nroot R',
-    'record R { "status": "a" | "b" | "c" }\nroot R',
-    'record R { "v": integer | "x" }\nroot R',
+    'record R { "status": string }\nroot R',
+    'record R { "v": number }\nroot R',
     'record R { "xs" [0,]: integer }\nroot R',
     'record R { "xs" [1,5]: string }\nroot R',
     'record R { "first name": string }\nroot R',
     'record M { "name": string }\nrecord R { "m" [0,]: M }\nroot R',
-    'union U { "x", "y", null }\nrecord R { "u": U }\nroot R',
     'record Node { "v": integer, "kids" [0,]: Node }\nroot Node',
 ]
 
@@ -323,9 +336,15 @@ class TestOperations:
         assert compatible_with(strict, loose)
         assert not compatible_with(loose, strict)
 
-    def test_widened_union_is_compatible(self):
+    def test_integer_is_compatible_with_number(self):
         narrow = parse_schema('record R { "v": integer }\nroot R')
-        wide = parse_schema('record R { "v": integer | string }\nroot R')
+        wide = parse_schema('record R { "v": number }\nroot R')
+        assert compatible_with(narrow, wide)
+        assert not compatible_with(wide, narrow)
+
+    def test_nullable_is_one_directional(self):
+        narrow = parse_schema('record R { "v": string }\nroot R')
+        wide = parse_schema('record R { "v": string? }\nroot R')
         assert compatible_with(narrow, wide)
         assert not compatible_with(wide, narrow)
 
@@ -335,17 +354,11 @@ class TestOperations:
         assert compatible_with(a, b)
         assert not compatible_with(b, a)
 
-    def test_enum_subset(self):
-        a = parse_schema('record R { "s": "x" }\nroot R')
-        b = parse_schema('record R { "s": "x" | "y" }\nroot R')
-        assert compatible_with(a, b)
-        assert not compatible_with(b, a)
-
-    def test_temporal_enum_compatible_with_kind(self):
-        narrow = schema(ref("R"), R=record(field("d", union(datetime.date(2024, 1, 1)))))
-        from dataspec.canonical import DATE
-        wide = schema(ref("R"), R=record(field("d", union(DATE))))
-        assert compatible_with(narrow, wide)
+    def test_temporal_date_not_compatible_with_string(self):
+        from dataspec.canonical import DATE, STRING
+        a = schema(ref("R"), R=record(field("d", DATE)))
+        b = schema(ref("R"), R=record(field("d", STRING)))
+        assert not compatible_with(a, b)
 
     def test_equivalent_reordered(self):
         a = parse_schema('record R { "a": integer, "b": string }\nroot R')

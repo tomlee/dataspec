@@ -22,10 +22,11 @@ practical tour; the [API reference](api.md) lists every name with signatures.
   of members is the label `member` appearing several times, *not* a field
   pointing to an array. This is what lets the same Document represent JSON,
   YAML, TOML, and XML (including XML's interleaved repeated elements).
-- A **Schema** is built from two kinds of named definition: a **`record`**
-  (a closed set of named fields, each with a cardinality), and a **`union`** (a
-  value domain — kinds, literals, and/or null). Fields reference definitions by
-  name (`Ref`), which is how reuse and recursion work.
+- A **Schema** is built from named **`record`** definitions (a closed set of
+  named fields, each with a cardinality). A field's type is always exactly one
+  of the seven fixed scalar kinds (optionally nullable, e.g. `string?`) or a
+  `Ref` to a named record — never a composition of the two. `Ref`s are how
+  reuse and recursion work.
 
 ```python
 from dataspec import parse_schema, doc
@@ -65,7 +66,7 @@ d.child("name")            # a cursor to the single child
 
 ## Schemas — the DSL
 
-A schema is `record` / `union` definitions plus a `root`.
+A schema is `record` definitions plus a `root`.
 
 ```
 record Address { "street": string, "city": string }
@@ -75,7 +76,7 @@ record User {
     "nickname" [0,1]: string,        # optional
     "emails" [1,]:    string,        # one or more (an array)
     "address":       Address,        # Ref to a named record
-    "status":        "active" | "suspended",   # an inline enum
+    "note":          string?,       # nullable scalar
 }
 root User
 ```
@@ -83,48 +84,52 @@ root User
 Rules, all from [the model spec](design/model.md):
 
 - **Field labels are always quoted** (they're data strings, and may contain
-  spaces: `"home address"`). Unquoted identifiers are *schema names* — a kind
-  keyword (`string`, `integer`, …) or a `Ref` to a definition.
+  spaces: `"home address"`). Unquoted identifiers are *schema names* — a scalar
+  keyword (`string`, `integer`, …) or a `Ref` to a record.
 - **Cardinality `[min,max]`** is the only multiplicity knob: `[1,1]` required
   (the default — omit the brackets), `[0,1]` optional, `[0,]` zero-or-more,
   `[1,]` one-or-more, `[2,5]` bounded. **There is no separate array type** — an
   array is a field with `max > 1`.
-- A field's type is a `Ref` (an unquoted name) or an inline **union**:
-  `integer | string`, `"a" | "b"` (enum), `string?` (adds null), `integer |
-  "unknown"` (a kind plus a literal). `?` adds null to a *value* domain only —
-  a record that may be absent is `[0,1]`, never `Ref?`.
+- A field's type is **always exactly one** of the seven fixed scalars
+  (`string`, `integer`, `number`, `boolean`, `date`, `time`, `datetime`),
+  optionally suffixed `?` for nullable (`string?`), or a `Ref` (an unquoted
+  name) to a named record. There is no `|` composition, no enum/literal
+  values in type position, and `?` never applies to a `Ref` — a record that
+  may be absent is `[0,1]`, never `Ref?`.
 - **Records are closed**: an unexpected label is an error.
 
-Named unions, and round-tripping back to text:
+Round-tripping back to text:
 
 ```python
 from dataspec import parse_schema, to_dsl
 
-s = parse_schema('union License { "auto", "manual", null }\n'
-                 'record Car { "license": License }\nroot Car')
+s = parse_schema('record Car { "license": string }\nroot Car')
 to_dsl(s)                  # prints the schema back as DSL
 ```
 
 ## Schemas — the Python builder
 
-The same schema in Python. Scalar kinds live under the `t` namespace.
+The same schema in Python. Scalar instances live under the `t` namespace (and
+also as top-level names `STRING`, `INTEGER`, …) and are passed as-is as a
+field's type.
 
 ```python
-from dataspec import schema, record, union, field, ref, t
+from dataspec import schema, record, field, ref, nullable, t
 
-address = record(field("street", union(t.string)),
-                 field("city",   union(t.string)))
+address = record(field("street", t.string),
+                 field("city",   t.string))
 user = record(
-    field("name",    union(t.string)),
-    field("emails",  union(t.string), min=1, max=None),   # [1,]
+    field("name",    t.string),
+    field("emails",  t.string, min=1, max=None),   # [1,]
     field("address", ref("Address")),
-    field("status",  union("active", "suspended")),       # enum
+    field("note",    nullable(t.string)),          # nullable scalar
 )
 s = schema(ref("User"), User=user, Address=address)
 ```
 
-`union(...)` takes kind atoms (`t.string`) and/or literal values, plus
-`null=True`; `field(label, type, min=1, max=1)`; `record(*fields)`;
+`t.string` / `t.integer` / `t.number` / `t.boolean` / `t.date` / `t.time` /
+`t.datetime` are ready-to-use `Scalar` instances; `nullable(scalar)` returns a
+nullable copy; `field(label, type, min=1, max=1)`; `record(*fields)`;
 `schema(root_ref, **named_definitions)`.
 
 ## Validation
@@ -236,7 +241,7 @@ print(s.to_dsl())
 
 ## A real-life example
 
-An order schema combining named records, an enum, a required array, an optional
+An order schema combining named records, a required array, an optional
 field, and recursion-free reuse — built once, validated across formats.
 
 ```python
@@ -247,7 +252,7 @@ record Address  { "street": string, "city": string }
 record LineItem { "sku": string, "qty": integer, "price": number }
 record Order {
     "id":       string,
-    "status":   "pending" | "shipped" | "cancelled",
+    "status":   string,
     "total":    number,
     "address":  Address,
     "items" [1,]: LineItem,        # at least one line item
@@ -265,12 +270,12 @@ good = Doc.from_json('''
 s.validate(good).ok        # True
 
 bad = Doc.from_json('''
-{"id":"A2","status":"lost","total":10,
+{"id":"A2","status":"shipped","total":"ten",
  "address":{"street":"x","city":"y"},"items":[]}
 ''')
 print(s.validate(bad))
 # invalid:
-#   at $.status: 'lost' is not in union{'cancelled', 'pending', 'shipped'}
+#   at $.total: expected number, got string ('ten')
 #   at $: field 'items' occurs 0 time(s), expected at least 1
 ```
 

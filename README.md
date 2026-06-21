@@ -13,7 +13,7 @@ and write it back out to any of the others.
 from dataspec import parse_schema, doc
 
 s = parse_schema('''
-    record Member { "name": string, "role": "dev" | "pm" }
+    record Member { "name": string, "role": string }
     record Team   { "name": string, "members" [1,]: Member }
     root Team
 ''')
@@ -32,12 +32,13 @@ self-contained formal model (inspired by Lee & Cheung, CIKM 2010):
 - A **Document** is a *tree* — an ordered list of labeled edges. Arrays are
   just repeated labels, so the *same* Document represents JSON, YAML, TOML, and
   XML, including XML's interleaved repeated elements.
-- A **Schema** is `record` (closed named fields, each with a cardinality) and
-  `union` (a value domain) definitions, referenced by name for reuse and
-  recursion. **Validate** a Document, **compare** two schemas for
+- A **Schema** is named `record` definitions (closed named fields, each with a
+  cardinality), where every field's type is always exactly one fixed scalar
+  (optionally nullable) or one `Ref` to a named record — referenced by name for
+  reuse and recursion. **Validate** a Document, **compare** two schemas for
   backward-compatibility, or **infer** a schema from examples.
 - **Restrictive by default** — a schema guarantees structure; there are no
-  structureless escape hatches.
+  structureless escape hatches, and scalar types are never composed.
 
 The model is defined formally in
 [docs/design/model.md](docs/design/model.md).
@@ -54,7 +55,7 @@ Doc.from_json('{"id": 1, "tags": ["a", "b"]}').to_yaml()
 s = parse_schema('record R { "id": integer, "tags" [0,]: string }\nroot R')
 print(s.validate(doc({"id": "x", "tags": ["a"]})))
 #   invalid:
-#     at $.id: 'x' is not in union{integer}
+#     at $.id: expected integer, got string ('x')
 
 # learn a schema from examples
 print(infer([doc({"id": 1, "tags": ["a"]})]).to_dsl())
