@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.1.1a5]
+
+**Fixed:** `datetime` accepted a bare date-only string (`"2024-01-01"`) as a
+valid value, because `datetime.fromisoformat` is lenient -- it defaults a
+missing time component to midnight rather than rejecting the string. That
+silently treated "no time given" as "the time is exactly midnight," and
+meant `date` and `datetime` weren't actually mutually exclusive for the
+string form (only for real `datetime.date`/`datetime.datetime` objects).
+`matches_kind` now also requires that the string does *not* parse as a bare
+`date`, so `date`, `time`, and `datetime` are exclusive for every value,
+string or object. Narrows acceptance -- a previously-(incorrectly-)valid
+string now fails `datetime`, so this is a behavior change, not purely
+additive.
+
 ## [v0.1.1a4]
 
 Three robustness fixes for the schema DSL parser, found by probing it

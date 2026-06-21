@@ -378,7 +378,11 @@ def matches_kind(value: Any, k: Kind) -> bool:
     if k == DATETIME:
         if isinstance(value, _dt.datetime):
             return True
-        return _is_iso(value, _dt.datetime)
+        # datetime.fromisoformat is lenient: a bare date-only string ("2024-
+        # 01-01") parses fine, defaulting the missing time to midnight. That
+        # silently treats "no time given" as "the time is exactly midnight" --
+        # not the same value. Require that the string isn't ALSO a bare date.
+        return _is_iso(value, _dt.datetime) and not _is_iso(value, _dt.date)
     return False
 
 

@@ -52,7 +52,7 @@ class TestPublicApi:
         import dataspec as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.1.1a4"
+        assert ds.__version__ == "0.1.1a5"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_dsl(s)))
@@ -241,6 +241,50 @@ class TestDslRobustness:
     def test_record_named_a_non_scalar_word_is_fine(self):
         s = parse_schema('record Address { "city": string }\nrecord R { "a": Address }\nroot R')
         assert s.validate(doc({"a": {"city": "X"}})).ok
+
+
+# --------------------------------------------- date/time/datetime boundary
+class TestTemporalBoundary:
+    """date / time / datetime are mutually exclusive, including for the
+    string form (dates/times arrive as ISO-8601 text from JSON/XML).
+    datetime.fromisoformat is lenient -- a bare date-only string parses fine,
+    defaulting the missing time to midnight -- so a bare date string must
+    NOT satisfy datetime, only date."""
+
+    DATE = 'record R { "v": date }\nroot R'
+    TIME = 'record R { "v": time }\nroot R'
+    DATETIME = 'record R { "v": datetime }\nroot R'
+
+    def test_bare_date_string_satisfies_only_date(self):
+        v = "2024-01-01"
+        assert valid(self.DATE, {"v": v}).ok
+        assert not valid(self.DATETIME, {"v": v}).ok
+        assert not valid(self.TIME, {"v": v}).ok
+
+    def test_bare_time_string_satisfies_only_time(self):
+        v = "12:00:00"
+        assert valid(self.TIME, {"v": v}).ok
+        assert not valid(self.DATE, {"v": v}).ok
+        assert not valid(self.DATETIME, {"v": v}).ok
+
+    def test_full_timestamp_string_satisfies_only_datetime(self):
+        for v in ("2024-01-01T12:00:00", "2024-01-01T00:00:00"):
+            assert valid(self.DATETIME, {"v": v}).ok, v
+            assert not valid(self.DATE, {"v": v}).ok, v
+            assert not valid(self.TIME, {"v": v}).ok, v
+
+    def test_unparseable_string_satisfies_none(self):
+        v = "not-a-date"
+        assert not valid(self.DATE, {"v": v}).ok
+        assert not valid(self.TIME, {"v": v}).ok
+        assert not valid(self.DATETIME, {"v": v}).ok
+
+    def test_real_objects_unaffected(self):
+        import datetime as dt
+        assert valid(self.DATETIME, {"v": dt.datetime(2024, 1, 1, 12, 0)}).ok
+        assert not valid(self.DATETIME, {"v": dt.date(2024, 1, 1)}).ok
+        assert valid(self.DATE, {"v": dt.date(2024, 1, 1)}).ok
+        assert not valid(self.DATE, {"v": dt.datetime(2024, 1, 1, 12, 0)}).ok
 
 
 # ----------------------------------------------------------- DSL round-trip

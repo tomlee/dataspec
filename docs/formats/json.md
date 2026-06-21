@@ -35,7 +35,10 @@ write_json([("tag", "x")])                    # '{"tag": "x"}'
 
 - JSON has no date type; dates written from a Document go out as ISO-8601
   strings (reported as `temporal.stringified`), and the `date` / `time` /
-  `datetime` scalar kinds accept those strings on the way back in.
+  `datetime` scalars accept those strings on the way back in — `date`,
+  `time`, and `datetime` are mutually exclusive even for strings, so
+  `"2024-01-01"` satisfies only `date`, not `datetime` (it has no time
+  component to satisfy it with).
 - JSON has no `NaN`/`Infinity`; writing one is reported as `float.special`, an
   error-severity adjustment. See
   [adjustment reports](../api.md#adjustment-reports-lossy-writes).
