@@ -18,16 +18,15 @@ from dataspec import (
     register_format,
     schema,
     t,
-    union,
 )
 
 
 def test_readme_at_a_glance():
-    s = parse_schema('record Member { "name": string, "role": "dev" | "pm" }\n'
+    s = parse_schema('record Member { "name": string, "role": string }\n'
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.1.1a5"
+    assert ds.__version__ == "0.1.1a6"
 
 
 def test_guide_documents():
@@ -49,15 +48,15 @@ def test_guide_editing():
 
 
 def test_guide_builder_matches_dsl():
-    address = record(field("street", union(t.string)), field("city", union(t.string)))
-    user = record(field("name", union(t.string)),
-                  field("emails", union(t.string), min=1, max=None),
+    address = record(field("street", t.string), field("city", t.string))
+    user = record(field("name", t.string),
+                  field("emails", t.string, min=1, max=None),
                   field("address", ref("Address")),
-                  field("status", union("active", "suspended")))
+                  field("status", t.string))
     s = schema(ref("User"), User=user, Address=address)
     dsl = parse_schema('record Address { "street": string, "city": string }\n'
                        'record User { "name": string, "emails" [1,]: string, '
-                       '"address": Address, "status": "active" | "suspended" }\nroot User')
+                       '"address": Address, "status": string }\nroot User')
     assert s.equivalent(dsl)
 
 
@@ -88,7 +87,7 @@ def test_example_all_formats_one_document():
         record LineItem { "sku": string, "qty": integer, "price": number }
         record Order {
             "id": string,
-            "status": "pending" | "shipped" | "cancelled",
+            "status": string,
             "total": number,
             "address": Address,
             "items" [1,]: LineItem,
@@ -119,12 +118,12 @@ def test_example_all_formats_one_document():
 
 def test_example_rejected_order():
     s = parse_schema('record LineItem { "sku": string }\n'
-                     'record Order { "status": "pending" | "shipped", '
+                     'record Order { "status": integer, '
                      '"items" [1,]: LineItem }\n'
                      'record Root { "order": Order }\nroot Root')
     bad = Doc.from_json('{"order":{"status":"lost","items":[]}}')
     msgs = {e.message for e in s.validate(bad).errors}
-    assert any("not in union" in m for m in msgs)
+    assert any("expected integer" in m for m in msgs)
     assert any("at least 1" in m for m in msgs)
 
 

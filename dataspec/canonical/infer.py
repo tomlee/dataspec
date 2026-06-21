@@ -1,13 +1,16 @@
 """Infer a Schema from example Documents, on the canonical model.
 
-Given one or more sample Documents, draft a ``record``/``union`` schema that
-accepts them:
+Given one or more sample Documents, draft a ``record`` schema that accepts
+them:
 
 * a label present in every sample with count 1 becomes a required field
   (``[1,1]``); absent in some samples -> ``[0,1]``; seen more than once ->
   an array (``[min,]``);
-* scalar children become a ``Union`` of the observed kinds (nullable if any
-  sample was null);
+* scalar children become one :class:`~dataspec.canonical.schema.Scalar`
+  (nullable if any sample was null). Samples disagreeing on scalar shape
+  raise, except ``integer``/``number`` mixing, which collapses to
+  ``number`` (the one subset relation between scalars) -- see
+  ``docs/design/model.md``;
 * object children become a nested, named ``record`` (recursively).
 
 Since the model has no inline records, nested records are given generated
@@ -17,25 +20,11 @@ out structurally identical.
 
 from __future__ import annotations
 
-import datetime as _dt
 from typing import Any, Dict, List
 
 from ..errors import SchemaError
 from .document import Doc, build_node
-from .schema import (
-    BOOLEAN,
-    DATE,
-    DATETIME,
-    INTEGER,
-    NUMBER,
-    STRING,
-    TIME,
-    Field,
-    Record,
-    Ref,
-    Schema,
-    Union,
-)
+from .schema import Field, Record, Ref, Scalar, Schema, value_kind
 
 
 def infer(samples: List[Any], root_name: str = "Root") -> Schema:
@@ -111,30 +100,18 @@ def _infer_type(child_nodes: List[Any], label: str, env: Dict[str, Any],
         raise SchemaError(
             f"label {label!r} mixes objects and values; cannot infer one type")
     # all scalars
-    kinds, null = set(), False
+    names, null = set(), False
     for v in child_nodes:
         if v is None:
             null = True
         else:
-            kinds.add(_value_kind(v))
-    if NUMBER in kinds:
-        kinds.discard(INTEGER)
-    if not kinds and not null:
-        return Union(kinds=(STRING,))           # only-empty corpus -> string
-    return Union(kinds=kinds, null=null)
-
-
-def _value_kind(v: Any):
-    if isinstance(v, bool):
-        return BOOLEAN
-    if isinstance(v, int):
-        return INTEGER
-    if isinstance(v, float):
-        return NUMBER
-    if isinstance(v, _dt.datetime):
-        return DATETIME
-    if isinstance(v, _dt.date):
-        return DATE
-    if isinstance(v, _dt.time):
-        return TIME
-    return STRING
+            names.add(value_kind(v))
+    if "number" in names:
+        names.discard("integer")          # the one subset relation
+    if not names:
+        return Scalar("string", nullable=null)    # no non-null sample observed
+    if len(names) > 1:
+        raise SchemaError(
+            f"label {label!r} has values of more than one scalar "
+            f"({', '.join(sorted(names))}); cannot infer one scalar type")
+    return Scalar(names.pop(), nullable=null)

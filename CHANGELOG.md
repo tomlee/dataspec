@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.1.1a6]
+
+**Breaking:** removed value-domain composition (enums/unions) from the schema
+model. A field's type is now always exactly one of the seven fixed scalars
+(`string`, `integer`, `number`, `boolean`, `date`, `time`, `datetime` —
+optionally nullable, e.g. `string?`) or one `Ref` to a named record — never a
+composition of either. The DSL no longer has a `|` operator, literal values in
+type position, or a `union`/`domain` keyword. Composable value domains made
+schema-directed deserialization ambiguous: a value could satisfy more than one
+candidate representation with no principled way to choose which Python type to
+materialize it as, so the feature is gone rather than fixed. On the Python
+builder side, the `union(...)` function is removed; a new `Scalar` class
+replaces it, with ready-to-use instances exported as `STRING`, `INTEGER`,
+`NUMBER`, `BOOLEAN`, `DATE`, `TIME`, `DATETIME` (also under a `t` namespace,
+e.g. `t.string`) that can be passed directly as a field's type, plus a new
+`nullable(scalar)` builder for the `?` form.
+
 ## [v0.1.1a5]
 
 **Fixed:** `datetime` accepted a bare date-only string (`"2024-01-01"`) as a

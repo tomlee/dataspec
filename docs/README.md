@@ -15,9 +15,10 @@ Start here, in roughly this order:
 - A **Document** is a *tree*: a node is either a scalar value or an **ordered
   list of labeled edges**. An array is just a label that repeats — so the same
   Document represents JSON, YAML, TOML, and XML.
-- A **Schema** is two kinds of named definition — **`record`** (closed named
-  fields, each with a cardinality `[min,max]`) and **`union`** (a value domain
-  of kinds, literals, and/or null) — referenced by name for reuse and recursion.
+- A **Schema** is named **`record`** definitions (closed named fields, each
+  with a cardinality `[min,max]`), where each field's type is always exactly
+  one fixed scalar (optionally nullable) or one `Ref` to a named record —
+  referenced by name for reuse and recursion.
 - **Validate** a Document against a schema, **compare** two schemas for
   backward-compatibility (`compatible_with`), or **infer** a schema from
   examples.
@@ -26,7 +27,7 @@ Start here, in roughly this order:
 from dataspec import parse_schema, doc
 
 s = parse_schema('''
-    record Member { "name": string, "role": "dev" | "pm" }
+    record Member { "name": string, "role": string }
     record Team   { "name": string, "members" [1,]: Member }
     root Team
 ''')

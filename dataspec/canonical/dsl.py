@@ -2,36 +2,31 @@
 
 Grammar (informal)::
 
-    schema      := definition* 'root' NAME
-    definition  := 'record' NAME '{' field (',' field)* ','? '}'
-                 | 'union'  NAME '{' member (',' member)* ','? '}'
+    schema      := record* 'root' NAME
+    record      := 'record' NAME '{' field (',' field)* ','? '}'
     field       := STRING cardinality? ':' type
     cardinality := '[' INT? (',' INT?)? ']'          -- [m,n] [m,] [,n] [n]; absent = [1,1]
-    type        := atom ('|' atom)* '?'?             -- a value-domain union, or one Ref
-    atom        := kind | STRING | NUMBER | 'null' | 'true' | 'false' | NAME
-    member      := kind | STRING | NUMBER | 'null' | 'true' | 'false'
+    type        := SCALARNAME '?'? | NAME            -- one scalar, or one Ref
 
-Quoting rule: a ``"quoted"`` token is a data string (a field label or a string
-literal); an unquoted identifier is a schema name (a kind keyword, or a ``Ref``);
-``null`` / ``true`` / ``false`` / a number are bare non-string literals.
+Quoting rule: a ``"quoted"`` token is a data string (always a field label —
+there is no other use for a string literal in this grammar); an unquoted
+identifier is a schema name (a scalar keyword, or a ``Ref``).
+
+There is no value-domain composition: no ``|``, no enum, no literal-valued
+fields, and no ``union``/``domain`` declaration.  A field's type is always
+either one of the seven scalars (``string``, ``integer``, ``number``,
+``boolean``, ``date``, ``time``, ``datetime``), optionally ``?``, or a
+``Ref`` to a named record.  See ``docs/design/model.md`` for why: a
+composable value-domain made schema-directed deserialization ambiguous.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from ..errors import SchemaError
-from .schema import (
-    Field,
-    Record,
-    Ref,
-    Schema,
-    Union,
-    kind_by_name,
-)
-
-_KINDS = {"string", "integer", "number", "boolean", "date", "time", "datetime"}
+from .schema import SCALAR_NAMES, Field, Record, Ref, Scalar, Schema
 
 _TOKEN = re.compile(r"""
       (?P<ws>\s+)
@@ -39,7 +34,7 @@ _TOKEN = re.compile(r"""
     | (?P<string>"(?:\\.|[^"\\])*")
     | (?P<number>-?\d+\.\d+|-?\d+)
     | (?P<name>[A-Za-z_][A-Za-z0-9_]*)
-    | (?P<punct>[{}\[\]:,|?])
+    | (?P<punct>[{}\[\]:,?])
 """, re.VERBOSE)
 
 
@@ -97,29 +92,26 @@ class _Parser:
             if t.kind == "name" and t.text == "record":
                 name, rec = self._record()
                 self._define(env, name, rec)
-            elif t.kind == "name" and t.text == "union":
-                name, u = self._union_def()
-                self._define(env, name, u)
             elif t.kind == "name" and t.text == "root":
                 self._next()
                 root = self._expect("name").text
             else:
-                raise SchemaError(f"expected 'record', 'union', or 'root' at {t.pos}, "
+                raise SchemaError(f"expected 'record' or 'root' at {t.pos}, "
                                   f"got {t.text!r}")
         if root is None:
             raise SchemaError("a schema must declare a root")
         return Schema(Ref(root), env)
 
-    def _define(self, env: dict, name: str, d: Any) -> None:
-        if name in _KINDS:
+    def _define(self, env: dict, name: str, rec: Record) -> None:
+        if name in SCALAR_NAMES:
             raise SchemaError(
-                f"{name!r} is a reserved scalar name; a record or union "
-                "cannot be defined with this name, or it could never be "
-                "referenced (a bare 'name' in a type position always means "
-                "the builtin scalar)")
+                f"{name!r} is a reserved scalar name; a record cannot be "
+                "defined with this name, or it could never be referenced "
+                "(a bare name in a type position always means the builtin "
+                "scalar)")
         if name in env:
             raise SchemaError(f"duplicate definition {name!r}")
-        env[name] = d
+        env[name] = rec
 
     def _record(self) -> Tuple[str, Record]:
         self._expect("name", "record")
@@ -174,67 +166,25 @@ class _Parser:
                               f"at {t.pos}")
         return int(t.text)
 
-    def _type(self) -> Any:
-        atoms: List[_Tok] = [self._type_atom()]
-        while self._peek().text == "|":
-            self._next()
-            atoms.append(self._type_atom())
+    def _type(self):
+        t = self._next()
+        if t.kind != "name":
+            raise SchemaError(
+                f"expected a scalar name or a reference at {t.pos}, got {t.text!r} "
+                "(enums and literal-valued fields are not supported -- a "
+                "field's type is always one scalar or a reference to a "
+                "named record)")
         nullable = False
         if self._peek().text == "?":
             self._next()
             nullable = True
-        return self._build_type(atoms, nullable)
-
-    def _type_atom(self) -> _Tok:
-        t = self._next()
-        if t.kind in ("string", "number", "name"):
-            return t
-        raise SchemaError(f"expected a type atom at {t.pos}, got {t.text!r}")
-
-    def _build_type(self, atoms: List[_Tok], nullable: bool) -> Any:
-        # a single unquoted non-kind identifier is a Ref (to a record or union)
-        if (len(atoms) == 1 and atoms[0].kind == "name"
-                and atoms[0].text not in _KINDS
-                and atoms[0].text not in ("null", "true", "false")):
-            if nullable:
-                raise SchemaError(
-                    f"'?' cannot apply to the reference {atoms[0].text!r}; "
-                    "use cardinality [0,1] for an optional field")
-            return Ref(atoms[0].text)
-        kinds, literals, null = [], [], nullable
-        for a in atoms:
-            if a.kind == "string":
-                literals.append(_unquote(a.text))
-            elif a.kind == "number":
-                literals.append(float(a.text) if "." in a.text else int(a.text))
-            elif a.text == "null":
-                null = True
-            elif a.text in ("true", "false"):
-                literals.append(a.text == "true")
-            elif a.text in _KINDS:
-                kinds.append(kind_by_name(a.text))
-            else:
-                raise SchemaError(
-                    f"{a.text!r} cannot appear in a value union (a union holds "
-                    "kinds, literals, and null — never a record)")
-        return Union(kinds=kinds, literals=literals, null=null)
-
-    def _union_def(self) -> Tuple[str, Union]:
-        self._expect("name", "union")
-        name = self._expect("name").text
-        self._expect("punct", "{")
-        members: List[_Tok] = []
-        while self._peek().text != "}":
-            members.append(self._type_atom())
-            if self._peek().text == ",":
-                self._next()
-            else:
-                break
-        self._expect("punct", "}")
-        u = self._build_type(members, False)
-        if not isinstance(u, Union):
-            raise SchemaError(f"union {name!r} must hold values, not a reference")
-        return name, u
+        if t.text in SCALAR_NAMES:
+            return Scalar(t.text, nullable)
+        if nullable:
+            raise SchemaError(
+                f"'?' cannot apply to the reference {t.text!r}; use "
+                "cardinality [0,1] for an optional field")
+        return Ref(t.text)
 
 
 def parse_schema(text: str) -> Schema:
@@ -248,11 +198,8 @@ def parse_schema(text: str) -> Schema:
 
 def to_dsl(schema: Schema) -> str:
     lines: List[str] = []
-    for name, d in schema.env.items():
-        if isinstance(d, Union):
-            lines.append(f"union {name} {{ {_union_def_body(d)} }}")
-        else:
-            lines.append(_record(name, d))
+    for name, rec in schema.env.items():
+        lines.append(_record(name, rec))
     lines.append(f"root {schema.root.name}")
     return "\n".join(lines) + "\n"
 
@@ -276,31 +223,7 @@ def _card(lo: int, hi: Optional[int]) -> str:
     return f"[{lo},{'' if hi is None else hi}]"
 
 
-def _type(t: Any) -> str:
+def _type(t) -> str:
     if isinstance(t, Ref):
         return t.name
-    return _union_inline(t)
-
-
-def _union_inline(u: Union) -> str:
-    return " | ".join(_union_parts(u))
-
-
-def _union_def_body(u: Union) -> str:
-    return ", ".join(_union_parts(u))
-
-
-def _union_parts(u: Union) -> List[str]:
-    parts = [k.name for k in sorted(u.kinds, key=lambda k: k.name)]
-    parts += [_literal(v) for v in sorted(u.literals, key=repr)]
-    if u.null:
-        parts.append("null")
-    return parts
-
-
-def _literal(v: Any) -> str:
-    if isinstance(v, bool):
-        return "true" if v else "false"
-    if isinstance(v, str):
-        return '"' + v.replace('"', '\\"') + '"'
-    return str(v)
+    return f"{t.name}{'?' if t.nullable else ''}"

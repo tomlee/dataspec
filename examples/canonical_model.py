@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """The redesigned (canonical) model end to end: edge-list Document,
-record/union/Ref schema, field cardinality, validation, operations, and codecs.
+record/Ref schema with exactly seven scalars, field cardinality, validation,
+operations, and codecs.
 
 This exercises ``dataspec.canonical`` — the implementation of the design in
 ``docs/design/model.md``.  It lives alongside the current v0.1 package.
@@ -21,7 +22,7 @@ from dataspec import (
 SCHEMA = """
 record Member {
     "name": string,
-    "role": "dev" | "pm" | "design",
+    "role": string,
 }
 record Team {
     "name":         string,
@@ -55,7 +56,7 @@ def main():
     print("xml document:", x)
 
     print("\n== a rejected document, errors at exact paths ==")
-    bad = doc({"name": "Platform", "members": [{"name": "Cy", "role": "boss"}]})
+    bad = doc({"name": "Platform", "members": [{"name": 7, "role": "boss"}]})
     print(s.validate(bad))
 
     print("\n== compatible_with: adding an optional field is backward-compatible ==")
