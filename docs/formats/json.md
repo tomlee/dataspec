@@ -29,7 +29,7 @@ write_json([("tag", "x")])                    # '{"tag": "x"}'
 > **The count-1 rule.** Without a schema, a *single-element* array can't be told
 > apart from a single value — both are one edge — so it serializes as a bare
 > value. With a schema, cardinality decides (a `[0,]`/`[1,]` field always writes
-> a list). See [model spec §10](../design/model.md#10-resolved-decisions).
+> a list). See [model spec §9](../design/model.md#9-resolved-decisions).
 
 ## Notes
 

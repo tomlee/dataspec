@@ -1,10 +1,4 @@
-# Design: Canonical Document & Schema Model
-
-**Status:** Implemented (v0.1.1a1) — `import omnist`, with the implementation in `omnist.canonical`
-**Date:** 2026-06-21
-**Superseded:** the former `Doc` (dict/list/scalar) and `Type` tree (`ObjectType`/`ArrayType`/`ScalarType`/`RefType`/`AnyType`), removed in v0.1.1a1
-
----
+# Document & Schema Model
 
 > The model is **inspired by** Lee & Cheung, *"XML Schema Computations"*
 > (CIKM 2010) — but you don't need the paper to read this. The definitions
@@ -22,29 +16,37 @@ The headline ideas:
 1. A **Document is an ordered list of labeled edges**, not a map whose values may be arrays.
 2. A **Schema has exactly three building blocks** — `record` (constrained by its child labels), `Scalar` (one of seven fixed kinds, optionally nullable), and `Ref` (naming and recursion). A field's type is always exactly one `Scalar` or one `Ref` — never a composition of either.
 3. **Field cardinality `[min,max]`** is the single mechanism for optional / required / array. There is no separate array type.
-4. The model is **restrictive by default**: records are closed, scalar types are never composed into enums or unions, and the structureless escape hatches (`Any`, open objects, maps) are removed.
+4. The model is **restrictive by default**: records are closed, scalar types are never composed into enums or unions, and there are no structureless escape hatches (`Any`, open objects, maps).
 
 ---
 
-## 2. Motivation
+## 2. Why the model looks this way
 
-The previous model accreted three problems:
+Three properties shape every other decision in this document:
 
-- **The Document couldn't faithfully represent all inputs.** XML may interleave repeated elements (`<member/><other/><member/>`); a dict-with-array-values (`{"member": […], "other": …}`) has already reordered reality and cannot express the interleaving. The Document is supposed to be *canonical regardless of format*, but it was JSON-shaped.
+- **The Document must faithfully represent every supported input.** XML may
+  interleave repeated elements (`<member/><other/><member/>`); a map whose
+  values are arrays (`{"member": […], "other": …}`) has already reordered
+  that and cannot express the interleaving. So the Document is an *ordered
+  list of edges*, not a map — it's canonical regardless of format, including
+  XML's.
+- **"How many times may this label appear, and what shape?" is one idea,
+  expressed by one mechanism.** A field's `cardinality [min,max]` covers
+  required, optional, and array in a single range, rather than splitting the
+  question across several separate mechanisms that would each need their
+  own rules (and their own edge cases to get wrong).
+- **A schema should guarantee structure, with no escape hatch that lets it
+  declare "no structure here."** Every record is closed (§5); there is no
+  `Any`, no open/wildcard record, and no open-ended map type (§3).
 
-- **One idea was fragmented across three mechanisms.** "How many times may this label appear, and what shape?" was split into a per-field `required` flag, array length bounds, and an open-map `rest` attribute — three shards of one idea, which is why each felt ad hoc and why `rest` was the source of a real soundness bug in `compatible_with`.
-
-- **Structureless escape hatches undercut the tool's purpose.** `Any`, open objects, and the `[string]: T` map all let a schema declare "no structure here," which is the opposite of what a schema is for.
-
-The redesign collapses the three shards into one (`cardinality`), gives the Document a canonical form that represents every input faithfully, and removes the escape hatches.
-
-A later simplification also removed composed value types (enums and unions) from
-field types entirely. The reason: if a field's type can be a composition of several
-candidate representations — say, "either an integer or the literal string `unlimited`" —
-then a value that happens to match more than one candidate (or none cleanly) leaves no
-principled way to pick which Python type to materialize it as when deserializing. A
-field's type is now always exactly one fixed scalar kind (optionally nullable) or one
-`Ref` to a record, so there's never a choice to make.
+A field's type is also never a composition of several candidates (no enums,
+no unions, no literal values in type position — §5). The reason: if a
+field's type could be, say, "either an integer or the literal string
+`unlimited`," a value that happens to match more than one candidate (or none
+cleanly) leaves no principled way to pick which Python type to materialize
+it as when deserializing (§10). A field's type is always exactly one fixed
+scalar kind (optionally nullable) or one `Ref` to a record, so there's never
+a choice to make.
 
 ---
 
@@ -55,10 +57,10 @@ field's type is now always exactly one fixed scalar kind (optionally nullable) o
 - A small, self-contained schema model that's restrictive by default — a schema guarantees structure.
 - A clean formal definition both models can be specified and reasoned about from.
 
-**Non-goals (deliberately deferred)**
-- **Maps / open key sets** (`{ [string]: T }`). Removed for now; reintroduce later as an explicit, opt-in construct if needed.
-- **Wildcard / open records** and **`Any`** — removed; they abandon structure.
-- **Structural unions** (`{a}|{b}`), **value-domain unions/enums** (`"a" | "b"`), and **positional tuples** (`[string, integer]`) — not expressible; removed/deferred.
+**Non-goals (deliberately out of scope for now)**
+- **Maps / open key sets** (`{ [string]: T }`) — not expressible; reintroduce later as an explicit, opt-in construct if needed.
+- **Wildcard / open records** and **`Any`** — not expressible; they would abandon structure.
+- **Structural unions** (`{a}|{b}`), **value-domain unions/enums** (`"a" | "b"`), and **positional tuples** (`[string, integer]`) — not expressible (see §2 for why, on the value-domain side).
 - **Constrained scalars** (e.g. `Email = string matching …`) — no value refinements yet.
 - **Order-sensitive fields** — validation is order-free (see §4, §7).
 
@@ -153,7 +155,7 @@ A node `n` conforms to a `Record R` iff:
 2. **Closedness** — every edge label in `n` is some field of `R`.
 3. **Targets** — each matching edge's target conforms to that field's `type`.
 
-A value conforms to a `Scalar` iff it matches the scalar's kind (or is `null` and the scalar is nullable). A target conforms to `Ref(N)` iff it conforms to `env[N]`. "Matches the scalar's kind" is defined precisely in §11 — validation only *checks* a match (it never converts a value); §11 also covers *deserialization*, which additionally converts a matching value to a canonical Python type.
+A value conforms to a `Scalar` iff it matches the scalar's kind (or is `null` and the scalar is nullable). A target conforms to `Ref(N)` iff it conforms to `env[N]`. "Matches the scalar's kind" is defined precisely in §10 — validation only *checks* a match (it never converts a value); §10 also covers *deserialization*, which additionally converts a matching value to a canonical Python type.
 
 **Order is ignored.** Cardinality counts edges; it never constrains their sequence. A JSON document and an interleaved XML document with the same edges (in any order) conform identically.
 
@@ -161,27 +163,13 @@ A value conforms to a `Scalar` iff it matches the scalar's kind (or is `null` an
 
 ## 8. Serialization (Document → format)
 
-Group all edges sharing a label into one key, regardless of position: `[(m,A),(x,X),(m,B)]` → `{"m":[A,B], "x":X}`. Within-label order (`A` before `B`) is preserved; cross-label interleaving is dropped (no JSON-family format can express it). See §10 (1) for the count-1 rule.
+Group all edges sharing a label into one key, regardless of position: `[(m,A),(x,X),(m,B)]` → `{"m":[A,B], "x":X}`. Within-label order (`A` before `B`) is preserved; cross-label interleaving is dropped (no JSON-family format can express it). See §9 (1) for the count-1 rule.
 
 ---
 
-## 9. Impact on the current implementation
+## 9. Resolved decisions
 
-This is a **breaking redesign of the core**, not an incremental change:
-
-- **Document representation** changes from `dict`/`list`/scalar to an ordered edge list. The `Doc` API (`get`/`child`/`add`/…) would be reframed as a projection over edges; array access becomes "collect same-label edges."
-- **Type tree** is replaced: `ObjectType`+`ArrayType` collapse into `Record` (fields with cardinality); `ScalarType` becomes `Scalar` (one fixed kind, optionally nullable, never composed); `AnyType` is removed; `RefType` stays.
-- **Codecs** change: readers build edge lists; writers group by label and consult cardinality (or a fallback) to choose array-vs-bare.
-- **DSL** changes: quoted-label rule, the `record` keyword, `[m,n]` cardinality, `?` scalar-only.
-- **Operations** (`validate`/`compatible_with`/`equivalent`/`normalize`) re-expressed on the new model — and several get *simpler* (no `rest` special-casing; a scalar check becomes "is this value's set a subset of the other's").
-
-A phased path is possible (introduce the edge-list Document behind the existing API first, then the schema model), but the end state is incompatible with today's public types.
-
----
-
-## 10. Resolved decisions
-
-The corner cases, and how they're settled (all implemented):
+The corner cases, and how they're settled:
 
 1. **Count-1 serialization → schema-driven, with an always-list fallback.** When a schema is available, cardinality decides array-vs-bare (`max > 1` → list, else bare) — faithful, idiomatic output. With no schema, fall back to always-list (every grouped label becomes an array). This keeps the Document format-independent (no format-derived bits) and puts the array/bare decision where the cardinality actually lives.
 2. **Array-of-scalar → a repeated label**, uniform with array-of-record (`"tags"[0,]: string`). One mechanism (cardinality) for all "many," matching XML's repeated elements.
@@ -190,7 +178,7 @@ The corner cases, and how they're settled (all implemented):
 
 ---
 
-## 11. Scalar and Python type
+## 10. Scalar and Python type
 
 A `Scalar`'s kind determines which Python type a conforming value is held as.
 **Validation and deserialization use this mapping differently**, and the
@@ -228,7 +216,7 @@ Notes:
   as the Python `float` `3.0`, not the `int` `3` — `number` means "the
   `float` representation," and `integer` (`int`) is the one scalar kind that
   is a subset of it (the same subset relation `compatible_with`/`normalize`
-  and `infer`, §12 step 2, use).
+  and `infer`, §11 step 2, use).
 - **`datetime` is a subclass of `date` in Python**, and
   `datetime.fromisoformat` will happily parse a bare date string into a
   `datetime` at midnight — both are explicitly excluded so `date` and
@@ -243,13 +231,13 @@ Notes:
   flag — it only ever converts a value it can identify as belonging to a
   known field's scalar.
 
-## 12. Inference: determining a field's `Scalar` from samples
+## 11. Inference: determining a field's `Scalar` from samples
 
 `infer(samples)` drafts a `Scalar` for each scalar-valued field as follows,
 given the values observed across all samples for that field's label:
 
 1. **Collect the kind of every non-`null` value**, using the same kind names
-   as §11's table (a Python `bool` → `boolean`, an `int` → `integer`, a
+   as §10's table (a Python `bool` → `boolean`, an `int` → `integer`, a
    `float` → `number`, a `datetime.datetime` → `datetime`, a `datetime.date`
    → `date`, a `datetime.time` → `time`, anything else → `string`).
 2. **Collapse `integer` into `number`** if both were observed — the one
@@ -267,9 +255,9 @@ given the values observed across all samples for that field's label:
    information to infer from. `infer` defaults to `Scalar("string",
    nullable=True)`. (A label that never occurs in *any* sample — including
    one that's always an empty array — gets no field at all; that's a
-   property of the cardinality bookkeeping in step-by-step §10(2), not of
-   this algorithm, since this algorithm only ever runs for a label that
-   occurred at least once.)
+   property of the cardinality bookkeeping in §9(2), not of this algorithm,
+   since this algorithm only ever runs for a label that occurred at least
+   once.)
 
 ---
 

@@ -102,9 +102,9 @@ Full index: **[docs/](docs/README.md)**.
 
 ## Status
 
-omnist is **alpha** (v0.1.1a10). The model was redesigned around a small,
-self-contained formalism; the public API may still change before a stable
-release. Not yet on PyPI — install from a checkout.
+omnist is **alpha** (v0.1.1a10), built around a small, self-contained
+formalism; the public API may still change before a stable release. Not yet
+on PyPI — install from a checkout.
 
 Feedback and bug reports welcome:
 <https://github.com/tomlee/omnist/issues>. See [SECURITY.md](SECURITY.md) for

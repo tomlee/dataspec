@@ -97,7 +97,7 @@ value was `null`, independent of which kind(s) were observed; if a field
 occurred but every observed value was `null`, `infer` defaults to a
 nullable `string`. The full algorithm, with the exact collapse and default
 rules, is
-[model.md §12](design/model.md#12-inference-determining-a-fields-scalar-from-samples).
+[model.md §11](design/model.md#11-inference-determining-a-fields-scalar-from-samples).
 
 ### The Python builder
 
@@ -225,7 +225,7 @@ left to `Schema.validate`, not raised here.
 
 **Exactly which Python type each scalar deserializes to, and which raw
 values convert vs. raise**, is a per-kind table, not a single rule -- see
-[model.md §11](design/model.md#11-scalar-and-python-type) for the full
+[model.md §10](design/model.md#10-scalar-and-python-type) for the full
 table. The two results most worth knowing up front, since they're easy to
 get wrong intuitively:
 
