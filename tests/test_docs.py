@@ -102,6 +102,42 @@ def test_guide_infer():
                           '    "tags" [0,]: string,\n}\nroot Root\n')
 
 
+def test_guide_real_life_example():
+    ORDER = '''
+    record Address  { "street": string, "city": string }
+    record LineItem { "sku": string, "qty": integer, "price": number }
+    record Order {
+        "id":       string,
+        "status":   string,
+        "total":    number,
+        "address":  Address,
+        "items" [1,]: LineItem,
+        "coupon" [0,1]: string,
+    }
+    root Order
+    '''
+    s = parse_schema(ORDER)
+
+    good = Doc.from_oml('''
+id: "A1"
+status: "shipped"
+total: 29.97
+address: { street: "1 Main St"; city: "London" }
+items: { sku: "W"; qty: 3; price: 9.99 }
+''')
+    assert s.validate(good).ok
+
+    bad = Doc.from_oml('''
+id: "A2"
+status: "shipped"
+total: "ten"
+address: { street: "x"; city: "y" }
+''')
+    msgs = {e.message for e in s.validate(bad).errors}
+    assert any("expected number, got string" in m for m in msgs)
+    assert any("at least 1" in m for m in msgs)
+
+
 def test_example_all_formats_one_document():
     s = parse_schema('''
         record Address  { "street": string, "city": string }
@@ -168,6 +204,23 @@ order: {
 ''')
     assert j == o
     assert s.validate(Doc(o)).ok
+    assert Doc(o).to_json() == (
+        '{"order": {"id": "A1", "status": "shipped", "total": 29.97, '
+        '"address": {"street": "1 Main", "city": "London"}, '
+        '"items": [{"sku": "W", "qty": 3, "price": 9.99}, '
+        '{"sku": "G", "qty": 1, "price": 9.99}]}}')
+
+    bad = Doc.from_oml('''
+order: {
+    id: "A2"
+    status: "shipped"
+    total: "ten"
+    address: { street: "x"; city: "y" }
+}
+''')
+    msgs = {e.message for e in s.validate(bad).errors}
+    assert any("expected number, got string" in m for m in msgs)
+    assert any("at least 1" in m for m in msgs)
 
 
 def test_example_rejected_order():

@@ -330,22 +330,31 @@ root Order
 '''
 s = parse_schema(ORDER)
 
-good = Doc.from_json('''
-{"id":"A1","status":"shipped","total":29.97,
- "address":{"street":"1 Main St","city":"London"},
- "items":[{"sku":"W","qty":3,"price":9.99}]}
+good = Doc.from_oml('''
+id: "A1"
+status: "shipped"
+total: 29.97
+address: { street: "1 Main St"; city: "London" }
+items: { sku: "W"; qty: 3; price: 9.99 }
 ''')
 s.validate(good).ok        # True
 
-bad = Doc.from_json('''
-{"id":"A2","status":"shipped","total":"ten",
- "address":{"street":"x","city":"y"},"items":[]}
+bad = Doc.from_oml('''
+id: "A2"
+status: "shipped"
+total: "ten"
+address: { street: "x"; city: "y" }
 ''')
 print(s.validate(bad))
 # invalid:
 #   at $.total: expected number, got string ('ten')
 #   at $: field 'items' occurs 0 time(s), expected at least 1
 ```
+
+This Document didn't have to come from OML — JSON, YAML, TOML, and XML all
+read into the same shape; see [the real-life example](example.md) for the
+full cross-format walkthrough and [Formats](formats/overview.md) for each
+one's caveats.
 
 For a fuller version — the same order validated against documents in **all four
 formats**, plus a compatibility check — see [a real-life example](example.md).
