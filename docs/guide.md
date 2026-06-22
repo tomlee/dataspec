@@ -8,11 +8,12 @@ practical tour; the [API reference](api.md) lists every name with signatures.
 
 - [The two ideas](#the-two-ideas)
 - [Documents](#documents)
+- [OML — the native format](#oml--the-native-format)
 - [Schemas — the DSL](#schemas--the-dsl)
 - [Schemas — the Python builder](#schemas--the-python-builder)
 - [Validation](#validation)
 - [Operations](#operations)
-- [Reading & writing formats](#reading--writing-formats)
+- [Reading & writing other formats](#reading--writing-other-formats)
 - [Inferring a schema](#inferring-a-schema)
 - [A real-life example](#a-real-life-example)
 
@@ -22,7 +23,9 @@ practical tour; the [API reference](api.md) lists every name with signatures.
   **ordered list of labeled edges**. "Many" is a label that repeats — an array
   of members is the label `member` appearing several times, *not* a field
   pointing to an array. This is what lets the same Document represent JSON,
-  YAML, TOML, and XML (including XML's interleaved repeated elements).
+  YAML, TOML, and XML (including XML's interleaved repeated elements) — and
+  it's exactly the shape OML, omnist's own format, was designed to spell out
+  directly (below).
 - A **Schema** is built from named **`record`** definitions (a closed set of
   named fields, each with a cardinality). A field's type is always exactly one
   of the seven fixed scalar kinds (optionally nullable, e.g. `string?`) or a
@@ -64,6 +67,45 @@ d.set("name", "Bob")       # replace the single 'name'
 d.remove("tag")            # drop every 'tag' edge
 d.child("name")            # a cursor to the single child
 ```
+
+## OML — the native format
+
+JSON, YAML, TOML, and XML each give up something when you write a Document
+back out: TOML has no `null`, JSON/XML have no native date, XML forces a
+single root. **OML** (Omnist Markup Language) is the format designed
+*alongside* the Document model so nothing is given up — every Document
+shape (all seven scalars, `null`, repeated and interleaved labels,
+arbitrary nesting, multiple top-level edges) round-trips through it
+exactly. It's the closest thing to "the Document model, written down":
+
+```python
+from omnist import Doc
+
+d = Doc.from_oml('''
+name: "Ann"
+tag: "x"
+tag: "y"
+joined: 2024-01-01
+''')
+d.to_grouped()             # {'name': 'Ann', 'tag': ['x', 'y'], 'joined': datetime.date(2024, 1, 1)}
+d.to_oml()                 # back to OML text, byte-for-byte stable
+```
+
+A label is `bare` or `"quoted"`; a value is a quoted string, a number, a
+date/time/datetime written plainly (no quotes needed), `true`/`false`/
+`null`, or a nested `{ ... }` node. Two extra string spellings are accepted
+on read for convenience — raw strings (`'C:\path\to\file'`, no escaping at
+all) and triple-quoted multiline strings (`"""..."""`) — though the
+canonical writer always emits the plain quoted form.
+
+Because every Document shape maps onto OML without loss, `check_oml()`
+is always an empty report — OML is the one format in the
+[adjustment-report](#reading--writing-other-formats) story that never has
+anything to report. Reach for OML whenever you're not constrained to a
+specific interchange format: for example, as a config or fixture format
+inside your own project, or as the artifact you snapshot/diff in tests.
+See [the OML format page](formats/oml.md) for the full grammar, escaping
+rules, and edge cases.
 
 ## Schemas — the DSL
 
@@ -164,10 +206,12 @@ s.normalize()              # merge structurally identical named definitions
 `a.compatible_with(b)` means *every document `a` accepts is also accepted by
 `b`* — the backward-compatibility check for a schema change.
 
-## Reading & writing formats
+## Reading & writing other formats
 
 `read_*` parse a format into a Document node; `Doc.from_*` wrap it; `Doc.to_*`
-write back. All four formats read into the *same* Document.
+write back. JSON, YAML, TOML, and XML all read into the *same* Document that
+OML does — converting between any of the five is just *read one, write
+another*.
 
 ```python
 from omnist import Doc

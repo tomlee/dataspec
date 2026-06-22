@@ -1,7 +1,8 @@
 # A real-life example
 
-One schema, one Document, validated against orders read from **all four
-formats** — and the schema operations used the way you would in practice. Every
+One schema, one Document, validated against orders read from **all five
+formats** (including OML, omnist's own — see [the guide](guide.md#oml--the-native-format))
+— and the schema operations used the way you would in practice. Every
 snippet here is verified against the library.
 
 ## The schema
@@ -55,7 +56,7 @@ s = schema(ref("Root"),
 Each of these reads into the **identical** Document, and validates:
 
 ```python
-from omnist import parse_schema, read_json, read_yaml, read_toml, read_xml, Doc
+from omnist import parse_schema, read_json, read_yaml, read_toml, read_xml, read_oml, Doc
 
 s = parse_schema(SCHEMA)   # the DSL above
 
@@ -104,8 +105,19 @@ x = read_xml('''
 </order>
 ''')
 
-j == y == t == x                      # True -- one canonical Document
-all(s.validate(Doc(d)).ok for d in (j, y, t, x))   # True
+o = read_oml('''
+order: {
+    id: "A1"
+    status: "shipped"
+    total: 29.97
+    address: { street: "1 Main"; city: "London" }
+    items: { sku: "W"; qty: 3; price: 9.99 }
+    items: { sku: "G"; qty: 1; price: 9.99 }
+}
+''')
+
+j == y == t == x == o                      # True -- one canonical Document
+all(s.validate(Doc(d)).ok for d in (j, y, t, x, o))   # True
 ```
 
 Notice the two `items` become a repeated `items` label (an array of records) —
@@ -144,7 +156,8 @@ v2.compatible_with(v1)        # False -- a v2 order with a port doesn't
 
 ## See also
 
-- [User guide](guide.md) — the full reference for documents, schemas, and operations.
+- [User guide](guide.md) — the full reference for documents, OML, schemas, and operations.
+- [OML](formats/oml.md) — omnist's own format, with zero loss either way.
 - [Formats](formats/overview.md) — how each format maps to the model, and its caveats.
 - [Model spec](design/model.md) — the formal definitions.
 - [`examples/canonical_model.py`](../examples/canonical_model.py) — a runnable version.

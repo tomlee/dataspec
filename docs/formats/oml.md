@@ -25,7 +25,7 @@ as every other format. Values nest with `{ }`:
 venue: {
     name: "Strange Loop"
     building: {
-        address: { street: "123 Main St", city: "St. Louis", country: "US" }
+        address: { street: "123 Main St"; city: "St. Louis"; country: "US" }
         room: "Ballroom A"
     }
 }

@@ -30,8 +30,9 @@ A guarded handle on a Document node — either a **leaf** (a scalar value) or an
 | | |
 |---|---|
 | `Doc.of(value)` | same as `doc(value)` |
+| `Doc.from_oml(text)` | read **OML**, omnist's own format (see [the guide](guide.md#oml--the-native-format)) |
 | `Doc.from_json(text)` / `from_yaml` / `from_toml` / `from_xml` | read a format string |
-| `Doc.from_format(name, text)` | read by format name (`"json"`, …) |
+| `Doc.from_format(name, text)` | read by format name (`"json"`, `"oml"`, …) |
 
 **Shape & navigation**
 
@@ -60,8 +61,10 @@ A guarded handle on a Document node — either a **leaf** (a scalar value) or an
 |---|---|
 | `.to_data()` | the canonical Python form — a scalar, or a list of `(label, …)` tuples |
 | `.to_grouped()` | a JSON-shaped projection: same-label edges grouped into a list |
+| `.to_oml(**opts)` | serialize to **OML** — the only format with zero adjustments |
 | `.to_json(**opts)` / `.to_yaml()` / `.to_toml()` / `.to_xml()` | serialize to a format |
 | `.to_format(name, **opts)` | serialize by format name |
+| `.check_oml() -> WriteReport` | always empty — see [OML](guide.md#oml--the-native-format) |
 | `.check_json()` / `.check_yaml()` / `.check_toml()` / `.check_xml() -> WriteReport` | simulate the matching `to_*`, no output |
 | `.check_format(name) -> WriteReport` | simulate `to_format(name)`, no output (needs the format's `check`) |
 | `.validate(schema) -> ValidationResult` | shorthand for `schema.validate(self)` |
@@ -184,11 +187,13 @@ Low-level codecs over the canonical node form (a scalar, or a list of
 
 | | |
 |---|---|
-| `read_json(text)` / `read_yaml` / `read_toml` / `read_xml` | parse → a node |
+| `read_oml(text)` / `read_json` / `read_yaml` / `read_toml` / `read_xml` | parse → a node |
+| `write_oml(node, *, indent=2)` | a node → **OML**, losslessly — no `strict`/`report` needed (see below) |
 | `write_json(node, *, strict=False, report=None, indent=None)` | a node → JSON (groups same-label edges) |
 | `write_yaml(node, *, strict=False, report=None)` | a node → YAML |
 | `write_toml(node, *, strict=False, report=None)` | a node → TOML |
 | `write_xml(node, *, strict=False, report=None)` | a node → XML |
+| `check_oml(node)` | always an empty `WriteReport` — OML holds every node shape exactly |
 | `check_json(node)` / `check_yaml` / `check_toml` / `check_xml` | simulate a write; return a `WriteReport`, no output |
 
 `read_yaml`/`write_yaml` need `pyyaml`; `write_toml` needs `tomli_w`; `read_xml`

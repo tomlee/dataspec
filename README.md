@@ -53,6 +53,9 @@ from omnist import Doc, parse_schema, infer, doc, read_json
 # read one format, write another -- through one Document
 Doc.from_json('{"id": 1, "tags": ["a", "b"]}').to_yaml()
 
+# OML is omnist's own format -- the only one with zero adjustments either way
+Doc.from_oml('id: 1\ntags: "a"\ntags: "b"\n').to_oml()
+
 # describe a shape and check data against it; errors carry exact paths
 s = parse_schema('record R { "id": integer, "tags" [0,]: string }\nroot R')
 print(s.validate(doc({"id": "x", "tags": ["a"]})))
@@ -96,14 +99,19 @@ pip install pyyaml tomli_w defusedxml   # YAML / writing TOML / hardened XML
 
 Full index: **[docs/](docs/README.md)**.
 
-- **[User guide](docs/guide.md)** — the practical tour: documents, the DSL, the
-  Python builder, validation, operations, codecs, inference.
+- **[User guide](docs/guide.md)** — the practical tour: documents,
+  [**OML**](docs/guide.md#oml--the-native-format) (the native format),
+  [**the schema DSL**](docs/guide.md#schemas--the-dsl), the Python builder,
+  validation, operations, other codecs, inference.
+- **[OML](docs/formats/oml.md)** — omnist's own format, designed alongside the
+  model so every Document round-trips with zero adjustments.
 - **[API reference](docs/api.md)** — every public name, with signatures.
 - **[A real-life example](docs/example.md)** — one order schema validated against
   documents in JSON, YAML, TOML, and XML, plus a compatibility check.
 - **[Formats](docs/formats/overview.md)** — how each format maps to the model and
-  its caveats ([JSON](docs/formats/json.md) · [YAML](docs/formats/yaml.md) ·
-  [TOML](docs/formats/toml.md) · [XML](docs/formats/xml.md)).
+  its caveats ([OML](docs/formats/oml.md) · [JSON](docs/formats/json.md) ·
+  [YAML](docs/formats/yaml.md) · [TOML](docs/formats/toml.md) ·
+  [XML](docs/formats/xml.md)).
 - **[Model spec](docs/design/model.md)** — the formal Document and Schema models,
   self-contained and plain (no paper required).
 
