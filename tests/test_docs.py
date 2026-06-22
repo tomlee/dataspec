@@ -10,6 +10,7 @@ from omnist import (
     infer,
     parse_schema,
     read_json,
+    read_oml,
     read_toml,
     read_xml,
     read_yaml,
@@ -42,6 +43,14 @@ def test_guide_documents():
     assert [c.value for c in d.get("tag")] == ["x", "y"]
     assert d.to_data() == [("name", "Ann"), ("tag", "x"), ("tag", "y")]
     assert d.to_grouped() == {"name": "Ann", "tag": ["x", "y"]}
+
+
+def test_guide_oml_native_format():
+    import datetime
+    d = Doc.from_oml('\nname: "Ann"\ntag: "x"\ntag: "y"\njoined: 2024-01-01\n')
+    assert d.to_grouped() == {"name": "Ann", "tag": ["x", "y"],
+                              "joined": datetime.date(2024, 1, 1)}
+    assert d.to_oml() == 'name: "Ann"\ntag: "x"\ntag: "y"\njoined: 2024-01-01'
 
 
 def test_guide_editing():
@@ -126,6 +135,39 @@ def test_example_all_formats_one_document():
                  "<items><sku>G</sku><qty>1</qty><price>9.99</price></items></order>")
     assert j == y == tm == x
     assert all(s.validate(Doc(d)).ok for d in (j, y, tm, x))
+
+
+def test_example_doc_all_formats_one_document_incl_oml():
+    s = parse_schema('''
+        record Address  { "street": string, "city": string }
+        record LineItem { "sku": string, "qty": integer, "price": number }
+        record Order {
+            "id": string,
+            "status": string,
+            "total": number,
+            "address": Address,
+            "items" [1,]: LineItem,
+            "coupon" [0,1]: string,
+        }
+        record Root { "order": Order }
+        root Root
+    ''')
+    j = read_json('{"order":{"id":"A1","status":"shipped","total":29.97,'
+                  '"address":{"street":"1 Main","city":"London"},'
+                  '"items":[{"sku":"W","qty":3,"price":9.99},'
+                  '{"sku":"G","qty":1,"price":9.99}]}}')
+    o = read_oml('''
+order: {
+    id: "A1"
+    status: "shipped"
+    total: 29.97
+    address: { street: "1 Main"; city: "London" }
+    items: { sku: "W"; qty: 3; price: 9.99 }
+    items: { sku: "G"; qty: 1; price: 9.99 }
+}
+''')
+    assert j == o
+    assert s.validate(Doc(o)).ok
 
 
 def test_example_rejected_order():
