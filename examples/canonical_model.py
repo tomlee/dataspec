@@ -13,6 +13,7 @@ from omnist import (
     doc,
     parse_schema,
     read_json,
+    read_oml,
     read_toml,
     read_xml,
     read_yaml,
@@ -39,15 +40,20 @@ def main():
     print("== schema round-trips through to_dsl ==")
     print("equivalent:", s.equivalent(parse_schema(to_dsl(s))))
 
-    print("\n== the same Team, read from every format -> identical Document ==")
+    print("\n== the Team, in OML (omnist's own format) ==")
+    o = read_oml('name: "Platform"\n'
+                 'members: { name: "Ann"; role: "dev" }\n'
+                 'members: { name: "Bob"; role: "pm" }\n')
+    print("valid:", s.validate(Doc(o)).ok)
+
+    print("\n== and the identical Document from JSON/YAML/TOML, too ==")
     j = read_json('{"name":"Platform","members":[{"name":"Ann","role":"dev"},'
                   '{"name":"Bob","role":"pm"}]}')
     y = read_yaml("name: Platform\nmembers:\n  - name: Ann\n    role: dev\n"
                   "  - name: Bob\n    role: pm\n")
     t = read_toml('name = "Platform"\n[[members]]\nname = "Ann"\nrole = "dev"\n'
                   '[[members]]\nname = "Bob"\nrole = "pm"\n')
-    print("json == yaml == toml:", j == y == t)
-    print("valid:", s.validate(Doc(j)).ok)
+    print("oml == json == yaml == toml:", o == j == y == t)
 
     print("\n== XML keeps the document element as one top-level edge ==")
     x = read_xml("<team><name>Platform</name>"

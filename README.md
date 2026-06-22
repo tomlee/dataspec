@@ -50,11 +50,11 @@ The model is defined formally in
 ```python
 from omnist import Doc, parse_schema, infer, doc, read_json
 
-# read one format, write another -- through one Document
-Doc.from_json('{"id": 1, "tags": ["a", "b"]}').to_yaml()
-
 # OML is omnist's own format -- the only one with zero adjustments either way
 Doc.from_oml('id: 1\ntags: "a"\ntags: "b"\n').to_oml()
+
+# converting from other formats is just read one, write another
+Doc.from_json('{"id": 1, "tags": ["a", "b"]}').to_yaml()
 
 # describe a shape and check data against it; errors carry exact paths
 s = parse_schema('record R { "id": integer, "tags" [0,]: string }\nroot R')

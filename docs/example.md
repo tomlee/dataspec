@@ -1,9 +1,11 @@
 # A real-life example
 
-One schema, one Document, validated against orders read from **all five
-formats** (including OML, Omnist's own — see [the guide](guide.md#oml--the-native-format))
-— and the schema operations used the way you would in practice. Every
-snippet here is verified against the library.
+One schema, one Document, validated against an order written in **OML**
+(Omnist's own format — see [the guide](guide.md#oml--the-native-format)),
+plus the schema operations used the way you would in practice. The same
+Document also reads in from JSON, YAML, TOML, and XML — see
+[Translating to other formats](#translating-to-other-formats). Every snippet
+here is verified against the library.
 
 ## The schema
 
@@ -51,14 +53,68 @@ s = schema(ref("Root"),
            Order=order, Address=address, LineItem=lineitem)
 ```
 
-## The same order, in every format
-
-Each of these reads into the **identical** Document, and validates:
+## The order, in OML
 
 ```python
-from omnist import parse_schema, read_json, read_yaml, read_toml, read_xml, read_oml, Doc
+from omnist import parse_schema, read_oml, Doc
 
 s = parse_schema(SCHEMA)   # the DSL above
+
+o = read_oml('''
+order: {
+    id: "A1"
+    status: "shipped"
+    total: 29.97
+    address: { street: "1 Main"; city: "London" }
+    items: { sku: "W"; qty: 3; price: 9.99 }
+    items: { sku: "G"; qty: 1; price: 9.99 }
+}
+''')
+
+s.validate(Doc(o)).ok      # True
+```
+
+Notice the two `items` edges share the label `items` — that's how an array
+of records is written; there's no list syntax, just the label repeating, in
+order.
+
+## A rejected order
+
+Validation reports every problem, at its exact path:
+
+```python
+bad = Doc.from_oml('''
+order: {
+    id: "A2"
+    status: "shipped"
+    total: "ten"
+    address: { street: "x"; city: "y" }
+}
+''')
+print(s.validate(bad))
+# invalid:
+#   at $.order.total: expected number, got string ('ten')
+#   at $.order: field 'items' occurs 0 time(s), expected at least 1
+```
+
+## Translating to other formats
+
+The Document above didn't have to come from OML — JSON, YAML, TOML, and XML
+all read into the *identical* Document too, and `Doc` writes back out to any
+of them. OML is just the one shown here because it's the only format that
+needs no caveats (see [Formats](formats/overview.md) for what each of the
+other four gives up).
+
+```python
+Doc(o).to_json()
+# '{"order": {"id": "A1", "status": "shipped", "total": 29.97, ...}}'
+```
+
+And the reverse — the same order, read from each of the other formats,
+produces the identical Document `o` above:
+
+```python
+from omnist import read_json, read_yaml, read_toml, read_xml
 
 j = read_json('''
 {"order": {"id": "A1", "status": "shipped", "total": 29.97,
@@ -105,38 +161,7 @@ x = read_xml('''
 </order>
 ''')
 
-o = read_oml('''
-order: {
-    id: "A1"
-    status: "shipped"
-    total: 29.97
-    address: { street: "1 Main"; city: "London" }
-    items: { sku: "W"; qty: 3; price: 9.99 }
-    items: { sku: "G"; qty: 1; price: 9.99 }
-}
-''')
-
-j == y == t == x == o                      # True -- one canonical Document
-all(s.validate(Doc(d)).ok for d in (j, y, t, x, o))   # True
-```
-
-Notice the two `items` become a repeated `items` label (an array of records) —
-in JSON/YAML/TOML they're written as a list, in XML as repeated `<items>`
-elements; in the Document they're the label `items` appearing twice.
-
-## A rejected order
-
-Validation reports every problem, at its exact path:
-
-```python
-bad = Doc.from_json('''
-{"order": {"id": "A2", "status": "shipped", "total": "ten",
-  "address": {"street": "x", "city": "y"}, "items": []}}
-''')
-print(s.validate(bad))
-# invalid:
-#   at $.order.total: expected number, got string ('ten')
-#   at $.order: field 'items' occurs 0 time(s), expected at least 1
+j == y == t == x == o      # True -- one canonical Document, five spellings
 ```
 
 ## Is a schema change safe?
