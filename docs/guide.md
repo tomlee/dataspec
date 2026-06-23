@@ -348,7 +348,7 @@ one's caveats.
 
 For a fuller version — the same order validated against documents in **all four
 formats**, plus a compatibility check — see [a real-life example](example.md).
-[`examples/canonical_model.py`](../examples/canonical_model.py) is a runnable
+[`examples/canonical_model.py`](https://github.com/tomlee/omnist/blob/master/examples/canonical_model.py) is a runnable
 end-to-end version; [the model spec](design/model.md) has the formal
 definitions; and [Formats](formats/overview.md) covers each format's mapping
 and caveats.
