@@ -93,3 +93,12 @@ Full test strategy (coverage target, fuzzing approach, CI) is in
 
 See also [testing.md](testing.md) for coverage measurement, the fuzzing
 methodology, and what CI runs on every push and PR.
+
+## Other top-level files
+
+- **`mkdocs.yml`** + **`.github/workflows/docs.yml`** -- build this `docs/`
+  tree into a browsable site (mkdocs-material) and deploy it to GitHub
+  Pages on every push to `master` that touches `docs/`, `mkdocs.yml`, or
+  `README.md`. Isolated from the package: its dependencies aren't part of
+  any `pyproject.toml` extra, so installing `omnist` never pulls in
+  documentation-site tooling.

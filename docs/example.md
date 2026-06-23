@@ -218,4 +218,4 @@ v2.compatible_with(v1)        # False -- a v2 order with a port doesn't
 - [The Schema model & DSL](schema.md) — a focused introduction to schemas on their own.
 - [Formats](formats/overview.md) — how each format maps to the model, and its caveats.
 - [Model spec](design/model.md) — the formal definitions.
-- [`examples/canonical_model.py`](../examples/canonical_model.py) — a runnable version.
+- [`examples/canonical_model.py`](https://github.com/tomlee/omnist/blob/master/examples/canonical_model.py) — a runnable version.

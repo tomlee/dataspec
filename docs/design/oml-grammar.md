@@ -14,10 +14,10 @@ accepts — the raw string (`'...'`) and triple-quoted multiline string
 `read_oml` understands on input.
 
 Every production below has been exercised against the real implementation
-in [`omnist/canonical/oml.py`](../../omnist/canonical/oml.py) (the `_Scanner`
+in [`omnist/canonical/oml.py`](https://github.com/tomlee/omnist/blob/master/omnist/canonical/oml.py) (the `_Scanner`
 tokenizer and `_Parser` parser); see [Worked examples](#7-worked-examples) and
 the conformance tests in
-[`tests/test_grammar_docs.py`](../../tests/test_grammar_docs.py).
+[`tests/test_grammar_docs.py`](https://github.com/tomlee/omnist/blob/master/tests/test_grammar_docs.py).
 
 ## 1. Lexical grammar (tokens)
 
@@ -256,7 +256,7 @@ processing at all — a backslash inside single quotes is a literal
 backslash, and there is no way to include a `'` character in a raw string
 (the first `'` always closes it).
 
-The canonical writer ([`_write_string`](../../omnist/canonical/oml.py))
+The canonical writer ([`_write_string`](https://github.com/tomlee/omnist/blob/master/omnist/canonical/oml.py))
 only ever emits `\"`, `\\`, `\n`, `\r`, `\t`, and `\u00XX` (for other
 control characters) — it never emits `\/`, `\b`, `\f`, surrogate pairs (it
 emits literal non-ASCII characters unescaped), raw strings, or multiline
@@ -269,7 +269,7 @@ A `bare-label` is an `IDENT` whose text is **not** `null`, `true`, or
 is a `ParseError` with a message naming the specific reserved word and
 suggesting the quoted spelling. Any other `IDENT`-shaped text, and any
 `STRING`, is a valid label. The canonical writer
-([`_write_label`](../../omnist/canonical/oml.py)) emits a bare label only
+([`_write_label`](https://github.com/tomlee/omnist/blob/master/omnist/canonical/oml.py)) emits a bare label only
 when the label text matches the `IDENT` shape *and* is not one of `null`,
 `true`, `false`, `nan`, `inf`; otherwise it quotes the label.
 
