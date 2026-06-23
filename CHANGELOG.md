@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.2.0] — first PyPI release
+
+No code changes since v0.1.9 — this is a milestone version bump marking the
+first release published to PyPI, after the documentation/test-hardening
+arc since v0.1.2: OML (the native lossless format, v0.1.3), four
+fuzz-discovered correctness fixes across XML/YAML/OML (v0.1.4, v0.1.6-9),
+order-independent `infer()` (v0.1.3), 100% line coverage, property-based
+fuzz testing, and a full documentation pass (formal grammars for OML and
+the Schema DSL, a glossary, a dedicated schema-directed-deserialization
+page, per-format reading/writing reference sections, and diagrams for the
+Document model, the Schema model, and the format-conversion flow).
+
 ## [v0.1.9]
 
 - Fix: an XML element label containing a trailing or embedded newline (e.g.
