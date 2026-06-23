@@ -4,6 +4,7 @@ Start here, in roughly this order:
 
 | Doc | What it covers |
 |---|---|
+| **[Quickstart](quickstart.md)** | The shortest possible tour — one OML snippet, one schema, `validate()`, `infer()`. Read this if you just want to see it work. |
 | **[User guide](guide.md)** | The practical tour — documents, OML, the schema DSL and Python builder, validation, the schema operations, codecs, inference. Read this first. |
 | **[OML](formats/oml.md)** | Omnist's own format: the only one with zero adjustments, and how it maps onto the Python Document. |
 | **[The Schema model & DSL](schema.md)** | Omnist's other central feature: `record` definitions, cardinality, the Python builder, and the comparison/inference operations. |
@@ -15,6 +16,7 @@ Start here, in roughly this order:
 | **[Schema DSL grammar](design/schema-dsl-grammar.md)** | The formal ABNF grammar for the schema DSL, verified against the parser: keywords, field syntax, cardinality, and the seven scalars. |
 | **[Glossary](glossary.md)** | One definition per term used across the docs and code, grouped by concept area. |
 | **[Testing](testing.md)** | The test suite: layout, coverage tooling and target, the fuzzing approach, and what CI runs. |
+| **[Repo layout](layout.md)** | How the repo itself is organized: `omnist/canonical/*.py` module responsibilities, the docs page map, and the test file map. |
 
 ## The model in one minute
 
