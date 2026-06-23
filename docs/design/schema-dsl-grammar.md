@@ -10,7 +10,7 @@ used here (record, field, cardinality, Scalar, Ref).
 Every production below has been exercised against the real implementation
 in [`omnist/canonical/dsl.py`](../../omnist/canonical/dsl.py) (the
 tokenizer regex and `_Parser` class); see [Worked
-examples](#worked-examples) and the conformance tests in
+examples](#5-worked-examples) and the conformance tests in
 [`tests/test_grammar_docs.py`](../../tests/test_grammar_docs.py).
 
 ## 1. Lexical grammar (tokens)
@@ -57,7 +57,7 @@ is **no** named-escape table (no `\n`, `\t`, `\uXXXX`, etc., unlike OML).
 `\X` always becomes exactly `X`, whatever `X` is, including `\\` → `\` and
 `\"` → `"`. This means a label like `"a\nb"` literally contains the two
 characters `n` and `b` after the backslash is dropped — it is **not** a
-newline. See [Worked examples](#worked-examples) #1.
+newline. See [Worked examples](#5-worked-examples) #1.
 
 ## 2. Syntactic grammar
 

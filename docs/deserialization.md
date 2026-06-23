@@ -9,6 +9,20 @@ additionally converts each leaf to match the schema's declared
 This page covers that conversion: what changes, what doesn't, and why it's
 safe to do without guessing.
 
+Schema awareness is **one-directional, read-only**: a reader optionally
+takes `schema=` to upgrade leaves on the way in, but no writer
+(`write_json`/`write_yaml`/`write_toml`/`write_xml`/`write_oml`, or the
+matching `Doc.to_*` methods) accepts a schema at all — a writer serializes
+the Document exactly as it is, never consulting a schema for how to shape
+the output.
+
+```mermaid
+flowchart LR
+    schema["Schema"] -. "schema=" .-> reader["reader (read_*)"]
+    text["format text"] --> reader --> doc1["Document"]
+    doc1 --> writer["writer (write_*)"] --> text2["format text"]
+```
+
 ## The core distinction, demonstrated
 
 The same JSON text, read with and without a schema, can hand back a Document
@@ -114,47 +128,14 @@ value-exact as `4`).
 
 ## Conversion rules
 
-The table below is the full, per-kind mapping of what validation accepts
-(checks a value already in the document, never converts) versus what
-deserialization additionally converts (and rejects) for each `Scalar` kind.
-
-| Scalar kind | Canonical Python type | What validation accepts | What deserialization additionally converts | What deserialization rejects |
-|---|---|---|---|---|
-| `string` | `str` | any `str` | nothing (no other type converts to `str`) | every non-`str` value |
-| `integer` | `int` | any `int` that isn't a `bool` | a `float` with no fractional part (`x.is_integer()`), e.g. `4.0 → 4` | `bool` (even though `bool` is an `int` subclass in Python); a `float` with a fractional part (`4.5`); any `str` |
-| `number` | `float` | an `int` or a `float`, neither a `bool` | an `int` is **always** upgraded to `float` (`3 → 3.0`) — see note below | `bool`; any `str` |
-| `boolean` | `bool` | any `bool` | nothing (no string `"true"`/`"false"` parsing) | every non-`bool` value |
-| `date` | `datetime.date` | a real `date` that is **not** a `datetime` (see note below); or an ISO-8601 date string (`"2024-01-01"`) | the ISO-8601 date string, to a real `date` | a real `datetime` value (even though `datetime` is a `date` subclass); a string that isn't a valid bare ISO date |
-| `time` | `datetime.time` | a real `time`; or an ISO-8601 time string (`"12:00:00"`) | the ISO-8601 time string, to a real `time` | a string that isn't a valid ISO time |
-| `datetime` | `datetime.datetime` | a real `datetime`; or a full ISO-8601 timestamp string that is **not** also a bare date string | the timestamp string, to a real `datetime` | a bare ISO date string (`"2024-01-01"` alone never satisfies `datetime`, only `date`); a string that isn't a valid full timestamp |
-
-Notes:
-
-- **`bool` never satisfies `integer` or `number`.** Python's `bool` is an
-  `int` subclass, so `isinstance(True, int)` is `True` — but a schema's
-  `integer`/`number` scalar explicitly excludes it. `true`/`false` only ever
-  satisfy `boolean`.
-- **`number` always deserializes to `float`, even from an integer literal.**
-  A JSON/YAML/TOML value `3` read against a `"v": number` field materializes
-  as the Python `float` `3.0`, not the `int` `3` — `number` means "the
-  `float` representation," and `integer` (`int`) is the one scalar kind that
-  is a subset of it.
-- **`datetime` is a subclass of `date` in Python**, and
-  `datetime.fromisoformat` will happily parse a bare date string into a
-  `datetime` at midnight — both are explicitly excluded so `date` and
-  `datetime` stay mutually exclusive for *both* the real-object form and the
-  string form. A bare date string only ever satisfies `date`; a real
-  `datetime.datetime(2024, 1, 1)` (even at midnight) only ever satisfies
-  `datetime`, never `date`.
-- **Shape mismatches are validation's job, not deserialization's.** If a
-  value's *structure* doesn't match what's expected at all (a record where a
-  scalar is expected, or vice versa) or a field is missing/unexpected,
-  `materialize` passes the node through unchanged for `Schema.validate` to
-  flag — it only ever converts a value it can identify as belonging to a
-  known field's scalar.
-
-See [model spec §10](design/model.md#10-scalar-and-python-type) for the
-formal definition this table is derived from.
+The full, per-kind mapping of what validation accepts (checks a value
+already in the document, never converts) versus what deserialization
+additionally converts (and rejects) for each `Scalar` kind — along with the
+"`bool` never satisfies `integer`/`number`," "`number` always deserializes
+to `float`," "`date`/`datetime` stay mutually exclusive," and "shape
+mismatches are validation's job" notes that go with it — lives in one place:
+[model spec §10](design/model.md#10-scalar-and-python-type), the formal
+definition this page's examples are derived from.
 
 ## `materialize`: upgrading an already-parsed node
 

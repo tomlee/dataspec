@@ -181,9 +181,9 @@ The corner cases, and how they're settled:
    `schema=` parameter, and none will: a writer's job is to serialize the
    Document exactly as it is, not to consult a schema for how to shape the
    output. Schema awareness is one-directional, on the **read** side only —
-   see [schema-directed deserialization](../guide.md#schema-directed-deserialization),
-   where `schema=` upgrades leaves (and *only* leaves) to match declared
-   types. There is no plan to add a write-side equivalent.
+   see [schema-directed deserialization](../deserialization.md), where
+   `schema=` upgrades leaves (and *only* leaves) to match declared types.
+   There is no plan to add a write-side equivalent.
 2. **Array-of-scalar → a repeated label**, uniform with array-of-record (`"tags"[0,]: string`). One mechanism (cardinality) for all "many," matching XML's repeated elements.
 3. **Bare nested arrays (`[[1,2],[3,4]]`) → forbidden for now.** Inner elements have no label, so there's no edge to give them (and XML can't express them either); reading one raises a clear error. Revisit only if a concrete need appears.
 4. **Root → a `Ref` to a single record (single-rooted).** Guarantees a lossless XML round-trip (one document element) and keeps the entry point uniform with every other definition.

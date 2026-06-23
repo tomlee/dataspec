@@ -90,6 +90,18 @@ s2 = schema(ref("User"), User=user, Address=address)
 s.equivalent(s2)      # True -- same schema, built two different ways
 ```
 
+Two paths, one result — DSL text and the Python builder both produce an
+ordinary `Schema` object; nothing downstream (`validate`, `compatible_with`,
+`to_dsl`, …) can tell which path built the one it's holding:
+
+```mermaid
+flowchart LR
+    dsl["DSL text\n(record ... root ...)"] -->|"parse_schema()"| s["Schema"]
+    builder["Python builder\n(record/field/ref/schema)"] -->|"schema(...)"| s
+```
+
+
+
 `t.string` / `t.integer` / `t.number` / `t.boolean` / `t.date` / `t.time` /
 `t.datetime` are ready-to-use `Scalar` instances; `nullable(scalar)` returns
 a nullable copy; `field(label, type, min=1, max=1)`; `record(*fields)`;

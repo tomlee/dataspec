@@ -15,19 +15,47 @@ accepts — the raw string (`'...'`) and triple-quoted multiline string
 
 Every production below has been exercised against the real implementation
 in [`omnist/canonical/oml.py`](../../omnist/canonical/oml.py) (the `_Scanner`
-tokenizer and `_Parser` parser); see [Worked examples](#worked-examples) and
+tokenizer and `_Parser` parser); see [Worked examples](#7-worked-examples) and
 the conformance tests in
 [`tests/test_grammar_docs.py`](../../tests/test_grammar_docs.py).
 
 ## 1. Lexical grammar (tokens)
 
 The tokenizer (`_Scanner`) scans **maximal munch with a fixed priority
-order** at every position: it tries STRING-family first, then DATETIME,
-DATE, TIME, NUMBER, INTEGER, the three reserved float spellings (`nan`,
-`inf`, `-inf`), then `IDENT`, then single-character punctuation. The first
-matching rule wins and consumes the *longest* match for its own pattern —
-there is no later backtracking between rules. See `_Scanner._next` for the
-literal order this grammar mirrors.
+order** at every position: it tries STRING-family and punctuation first
+(each pinned to its own leading character, so these never compete with
+anything else), then DATETIME, DATE, TIME, NUMBER, the three reserved float
+spellings (`nan`, `inf`, `-inf`), INTEGER, then `IDENT`. The first matching
+rule wins and consumes the *longest* match for its own pattern — there is no
+later backtracking between rules. See `_Scanner._next` for the literal order
+this grammar mirrors:
+
+```mermaid
+flowchart TD
+    start(["next token, at the current position"]) --> q{"leading\nchar?"}
+    q -->|"&quot; or '"| str["STRING-family\n(dquote / raw / multiline)"]
+    q -->|"{ } :"| punct["punctuation"]
+    q -->|"other"| dt{"matches\nDATETIME?"}
+    dt -->|yes| DT["DATETIME"]
+    dt -->|no| da{"matches DATE\n(and not DATE+'T'+TIME)?"}
+    da -->|yes| DA["DATE"]
+    da -->|no| ti{"matches\nTIME?"}
+    ti -->|yes| TI["TIME"]
+    ti -->|no| nu{"matches\nNUMBER\n(decimal/exponent)?"}
+    nu -->|yes| NU["NUMBER"]
+    nu -->|no| rf{"'-inf' / 'nan' /\n'inf' spelling?"}
+    rf -->|yes| RF["NUMBER\n(reserved float)"]
+    rf -->|no| ig{"matches\nINTEGER?"}
+    ig -->|yes| IG["INTEGER"]
+    ig -->|no| id{"matches\nIDENT?"}
+    id -->|yes| ID["IDENT"]
+    id -->|no| err(["ParseError:\nstray character"])
+```
+
+This is exactly why `nan: 1` and `inf: 1` are `ParseError`s (Worked example
+#9 below) — `nan`/`inf`/`-inf` are claimed by the reserved-float branch
+*before* `IDENT` is ever tried, so they can never become a bare label; only
+the quoted spelling (`"nan"`, `"inf"`) reaches the `STRING` branch instead.
 
 ```abnf
 ; -- whitespace, comments, separators -----------------------------------
@@ -129,7 +157,7 @@ shape), the scanner emits a plain `DATE` token for the date part, and the
 `T99` that follows becomes a separate `IDENT` token (`T` is alphabetic, so
 `T99` matches the `IDENT` pattern) — this is exactly maximal-munch-per-rule,
 not a single combined lookahead across the whole token stream. See
-[Worked examples](#worked-examples) #1-#2.
+[Worked examples](#7-worked-examples) #1-#2.
 
 ### 1.2 Multiline string termination (OML-Extended)
 
@@ -140,7 +168,7 @@ are left in the source and re-tokenized by the main scanner immediately
 after (so e.g. a run of 5 quotes closes the string with the first 3, and
 leaves a 2-quote run — which is *not* by itself a valid `STRING` start, and
 is a ParseError at the parser level, since two bare `"` would attempt to
-open an empty-then-unterminated string). See [Worked examples](#worked-examples)
+open an empty-then-unterminated string). See [Worked examples](#7-worked-examples)
 #7-#8.
 
 ### 1.3 Reserved spellings are tokenizer-level, not parser-level, for numbers
@@ -153,7 +181,7 @@ and non-reserved `IDENT` followed by `COLON` as edges), forcing a quoted
 spelling `"nan": 1` if a literal label `nan` is wanted. By contrast `null`,
 `true`, `false` are tokenized as ordinary `IDENT` tokens and excluded only
 by the *parser* (§4) — a meaningful difference if you're hand-rolling a
-tokenizer-only consumer. See [Worked examples](#worked-examples) #9-#10.
+tokenizer-only consumer. See [Worked examples](#7-worked-examples) #9-#10.
 
 ## 2. Syntactic grammar (document, edges, values)
 
@@ -210,7 +238,7 @@ takes the `scalar` branch, consumes `null` as the value `None`, and then
 fails afterward on the unconsumed `:` as ordinary trailing content. The same
 `null: 1` written *inside* a node (e.g. `a: { null: 1 }`) does hit the
 explicit reserved-word check in `parse_label`, with a different, more
-specific error message. See [Worked examples](#worked-examples) #11-#12.
+specific error message. See [Worked examples](#7-worked-examples) #11-#12.
 
 ## 3. String escaping rules
 
@@ -274,7 +302,7 @@ limit matches the Document model's own bound (`document.py`). Both raise
 `ParseError` rather than letting a pathological input hang or exhaust
 memory/stack. Verified exactly at the boundary: a 4300-digit integer and
 200 levels of `{` both parse; a 4301-digit integer and 201 levels both raise
-`ParseError` (see [Worked examples](#worked-examples) #13-#14, and
+`ParseError` (see [Worked examples](#7-worked-examples) #13-#14, and
 `tests/test_grammar_docs.py`).
 
 ## 7. Worked examples
