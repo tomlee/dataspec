@@ -29,9 +29,11 @@ write_json([("tag", "x")])                    # '{"tag": "x"}'
 > **The count-1 rule.** A *single-element* array can't be told apart from a
 > single value — both are one edge — so it always serializes as a bare value;
 > a label seen more than once always serializes as a list. `write_json` (like
-> the other writers) takes no schema, so there's currently no way to force a
-> single-element array field to write as a list. See
-> [model spec §9](../design/model.md#9-resolved-decisions).
+> every writer) never takes a schema, by design — a writer serializes the
+> Document exactly as it is, with no schema-driven override of this rule.
+> Schema awareness is read-side only: see
+> [schema-directed deserialization](../guide.md#schema-directed-deserialization).
+> See also [model spec §9](../design/model.md#9-resolved-decisions).
 
 ## Notes
 
