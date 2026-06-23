@@ -90,6 +90,13 @@ Requires **Python 3.11+** (it uses the standard-library `tomllib`). The core and
 JSON support have no dependencies.
 
 ```bash
+pip install omnist                      # core + JSON
+pip install omnist[all]                 # + pyyaml, tomli_w, defusedxml
+```
+
+Or from a checkout:
+
+```bash
 git clone https://github.com/tomlee/omnist.git
 cd omnist
 python3 -m venv .venv && source .venv/bin/activate
@@ -135,9 +142,8 @@ Full index: **[docs/](docs/README.md)**.
 
 ## Status
 
-Omnist is **alpha** (v0.1.3), built around a small, self-contained
-formalism; the public API may still change before a stable release. Not yet
-on PyPI — install from a checkout.
+Omnist is **alpha** (v0.2.0), built around a small, self-contained
+formalism; the public API may still change before a stable release.
 
 Feedback and bug reports welcome:
 <https://github.com/tomlee/omnist/issues>. See [SECURITY.md](SECURITY.md) for
