@@ -344,6 +344,28 @@ def test_formats_docs_snippets():
         [("t", [("m", "a"), ("x", 1), ("m", "b")])]      # interleaving preserved
 
 
+def test_formats_json_docs_raw_array_edge_list():
+    assert read_json('{"tags": ["x", "y"]}') == [("tags", "x"), ("tags", "y")]
+
+
+def test_formats_yaml_docs_raw_sequence_edge_list():
+    assert read_yaml('tags: [x, y]') == [("tags", "x"), ("tags", "y")]
+
+
+def test_formats_toml_docs_raw_array_of_tables_edge_list():
+    assert read_toml("""
+[[items]]
+sku = "W"
+[[items]]
+sku = "G"
+""") == [("items", [("sku", "W")]), ("items", [("sku", "G")])]
+
+
+def test_formats_xml_docs_raw_repeated_element_edge_list():
+    assert read_xml('<items><item>x</item><item>y</item></items>') == \
+        [("items", [("item", "x"), ("item", "y")])]
+
+
 def test_api_docs_schema_directed_deserialization():
     import datetime
     s = parse_schema('record R { "d": date, "n": number }\nroot R')
