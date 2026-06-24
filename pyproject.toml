@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omnist"
-version = "0.2.0"
+version = "0.2.1"
 description = "One data model, many formats: read, validate, and write JSON, YAML, TOML, XML, and OML."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,10 +31,10 @@ all = ["pyyaml", "tomli_w", "defusedxml"]
 dev = ["pytest", "pyyaml", "tomli_w", "defusedxml", "ruff", "hypothesis", "jsonschema"]
 
 [project.urls]
-Homepage = "https://github.com/tomlee/omnist"
-Repository = "https://github.com/tomlee/omnist"
-Issues = "https://github.com/tomlee/omnist/issues"
-Changelog = "https://github.com/tomlee/omnist/blob/master/CHANGELOG.md"
+Homepage = "https://github.com/omnist-dev/omnist"
+Repository = "https://github.com/omnist-dev/omnist"
+Issues = "https://github.com/omnist-dev/omnist/issues"
+Changelog = "https://github.com/omnist-dev/omnist/blob/master/CHANGELOG.md"
 
 [tool.setuptools]
 packages = ["omnist", "omnist.canonical"]

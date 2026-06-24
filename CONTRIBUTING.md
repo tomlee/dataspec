@@ -6,7 +6,7 @@ the real one this project uses — not a placeholder.
 ## Setup
 
 ```bash
-git clone https://github.com/tomlee/omnist.git
+git clone https://github.com/omnist-dev/omnist.git
 cd omnist
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .[dev]      # core + all formats + pytest + ruff
@@ -68,4 +68,4 @@ the README's Status section for the current plan.
 
 ## Reporting issues
 
-<https://github.com/tomlee/omnist/issues>
+<https://github.com/omnist-dev/omnist/issues>

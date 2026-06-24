@@ -8,7 +8,7 @@ older tags don't get backports.
 
 Please **don't** open a public issue for a security problem. Use GitHub's
 private vulnerability reporting instead:
-<https://github.com/tomlee/omnist/security/advisories/new>
+<https://github.com/omnist-dev/omnist/security/advisories/new>
 
 If that's not available to you, open an issue asking for a way to reach the
 maintainer privately, without describing the issue itself.

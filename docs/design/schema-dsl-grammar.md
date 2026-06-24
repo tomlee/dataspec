@@ -8,15 +8,15 @@ for context and examples, and the [glossary](../glossary.md) for the terms
 used here (record, field, cardinality, Scalar, Ref).
 
 Every production below has been exercised against the real implementation
-in [`omnist/canonical/dsl.py`](https://github.com/tomlee/omnist/blob/master/omnist/canonical/dsl.py) (the
+in [`omnist/canonical/dsl.py`](https://github.com/omnist-dev/omnist/blob/master/omnist/canonical/dsl.py) (the
 tokenizer regex and `_Parser` class); see [Worked
 examples](#5-worked-examples) and the conformance tests in
-[`tests/test_grammar_docs.py`](https://github.com/tomlee/omnist/blob/master/tests/test_grammar_docs.py).
+[`tests/test_grammar_docs.py`](https://github.com/omnist-dev/omnist/blob/master/tests/test_grammar_docs.py).
 
 ## 1. Lexical grammar (tokens)
 
 The tokenizer is a single regex alternation
-([`_TOKEN`](https://github.com/tomlee/omnist/blob/master/omnist/canonical/dsl.py)) tried left to right at each
+([`_TOKEN`](https://github.com/omnist-dev/omnist/blob/master/omnist/canonical/dsl.py)) tried left to right at each
 position; the first alternative that matches wins (Python `re` tries
 alternatives in order and takes the first match, not the longest — but
 because each alternative here is anchored to a disjoint leading character

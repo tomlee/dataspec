@@ -1,7 +1,7 @@
 site_name: Omnist
 site_description: One canonical data model for JSON, YAML, TOML, XML, and OML.
-repo_url: https://github.com/tomlee/omnist
-repo_name: tomlee/omnist
+repo_url: https://github.com/omnist-dev/omnist
+repo_name: omnist-dev/omnist
 edit_uri: edit/master/docs/
 
 docs_dir: docs

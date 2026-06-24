@@ -1,6 +1,6 @@
 # Omnist
 
-[![tests](https://github.com/tomlee/omnist/actions/workflows/test.yml/badge.svg)](https://github.com/tomlee/omnist/actions/workflows/test.yml)
+[![tests](https://github.com/omnist-dev/omnist/actions/workflows/test.yml/badge.svg)](https://github.com/omnist-dev/omnist/actions/workflows/test.yml)
 [![python](https://img.shields.io/badge/python-3.11%2B-blue)](#installation)
 [![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey)](LICENSE)
 [![status](https://img.shields.io/badge/status-alpha-orange)](#status)
@@ -100,7 +100,7 @@ pip install omnist[all]                 # + pyyaml, tomli_w, defusedxml
 Or from a checkout:
 
 ```bash
-git clone https://github.com/tomlee/omnist.git
+git clone https://github.com/omnist-dev/omnist.git
 cd omnist
 python3 -m venv .venv && source .venv/bin/activate
 pip install .                    # core + JSON
@@ -110,7 +110,7 @@ pip install pyyaml tomli_w defusedxml   # YAML / writing TOML / hardened XML
 ## Documentation
 
 Full index: **[docs/](docs/README.md)**, also browsable as a site at
-**[tomlee.github.io/omnist](https://tomlee.github.io/omnist/)**.
+**[omnist-dev.github.io/omnist](https://omnist-dev.github.io/omnist/)**.
 
 - **[Quickstart](docs/quickstart.md)** — the shortest possible example: one
   OML snippet, one schema, `validate()`, `infer()`.
@@ -150,11 +150,11 @@ Full index: **[docs/](docs/README.md)**, also browsable as a site at
 
 ## Status
 
-Omnist is **alpha** (v0.2.0), built around a small, self-contained
+Omnist is **alpha** (v0.2.1), built around a small, self-contained
 formalism; the public API may still change before a stable release.
 
 Feedback and bug reports welcome:
-<https://github.com/tomlee/omnist/issues>. See [SECURITY.md](SECURITY.md) for
+<https://github.com/omnist-dev/omnist/issues>. See [SECURITY.md](SECURITY.md) for
 the trust model if you parse untrusted input.
 
 ## License

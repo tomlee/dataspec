@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.2.1] — moved to the omnist-dev GitHub organization
+
+No code changes. The repository moved from `github.com/tomlee/omnist` to
+`github.com/omnist-dev/omnist` (the old URL redirects automatically). Updated
+every current reference to the new path: `pyproject.toml`'s project URLs,
+`mkdocs.yml`'s `repo_url`/`repo_name`, the absolute GitHub links to source
+files added in the OML/Schema DSL grammar docs and the glossary, the GitHub
+Pages link (now `omnist-dev.github.io/omnist`), and `CONTRIBUTING.md`/
+`SECURITY.md`'s clone/issue links. The historical CHANGELOG entry about the
+earlier `dataspec` → `omnist` rename (v0.1.1a8) is left as written, since it
+describes what was true at the time.
+
 ## [v0.2.0] — first PyPI release
 
 No code changes since v0.1.9 — this is a milestone version bump marking the

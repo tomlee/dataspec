@@ -81,7 +81,7 @@ unrelated to the 100% target, which applies to the package under test, not
 to the test files.)
 
 **How a gap is treated**, following the precedent set in #63 (the PR that
-first brought the package to 100%, tomlee/omnist#74): for every line/branch
+first brought the package to 100%, omnist-dev/omnist#74): for every line/branch
 reported as missing,
 
 1. Read the surrounding code to understand what path is untested.
