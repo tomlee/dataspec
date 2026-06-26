@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.2.8] — `omnist convert --strict`/`--report`, `omnist check`
+
+Completes the CLI implementation arc (see `docs/design/cli-spec.md`) —
+`omnist --help` now matches the spec exactly.
+
+- `omnist convert` gains `--strict`, `--report`, and `--result-format
+  text|json|oml`, mapping directly to `write_<to>`'s existing `strict=`/
+  `report=` parameters:
+  - `--report` prints what got adjusted to stderr (encoded per
+    `--result-format`); the write still happens.
+  - `--strict` refuses to write at all if anything would need adjusting
+    — exit `1` (a definite "no," grouped with `validate`/`compatible-with`,
+    not with the usage/parse failures that exit `2`).
+- New `omnist check <input> --from FMT --to FMT [--strict]
+  [--result-format text|json|oml]` — reports what `write_<to>` would
+  adjust without ever writing. Unlike `convert`, `--from`/`--to` may be
+  equal. Default: always exits `0` (purely informational); `--strict`
+  turns it into a `0`/`1` CI gate.
+- Added a CLI-level crash-freedom fuzz test (arbitrary/malformed input
+  across every command/format combination must always exit cleanly,
+  never raise an uncaught exception) — the codecs themselves are already
+  fuzzed by `tests/test_fuzz.py`; this only covers the CLI's own
+  error-surfacing path.
+
 ## [v0.2.7] — `omnist convert` (core)
 
 Adds `omnist convert <input> --from FMT --to FMT [--schema FILE] [-o

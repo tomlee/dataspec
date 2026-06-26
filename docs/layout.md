@@ -97,6 +97,10 @@ Full test strategy (coverage target, fuzzing approach, CI) is in
 - **`test_cli.py`** -- the `omnist` CLI (`omnist/cli.py`), invoked
   in-process via `main(argv)`: per-command behavior, stdin/stdout/file I/O,
   and clean (non-traceback) exits on malformed input.
+- **`test_cli_fuzz.py`** -- property-based crash-freedom fuzzing of the
+  CLI's own error-surfacing path (arbitrary input across every command/
+  format combination); doesn't re-fuzz the codecs, already covered by
+  `test_fuzz.py`.
 
 See also [testing.md](testing.md) for coverage measurement, the fuzzing
 methodology, and what CI runs on every push and PR.
