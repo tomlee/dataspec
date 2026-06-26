@@ -9,10 +9,37 @@ its own beyond argument parsing, file/stdio plumbing, and exit codes.
 from __future__ import annotations
 
 import argparse
+import json as _json
 import sys
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
-from . import ParseError, SchemaError, WriteError, parse_schema, read_oml, to_dsl, write_oml
+from . import (
+    Doc,
+    ParseError,
+    SchemaError,
+    ValidationResult,
+    WriteError,
+    doc,
+    parse_schema,
+    read_json,
+    read_oml,
+    read_toml,
+    read_xml,
+    read_yaml,
+    to_dsl,
+    write_oml,
+)
+
+FMT_CHOICES = ["json", "yaml", "toml", "xml", "oml"]
+RESULT_FORMAT_CHOICES = ["text", "json", "oml"]
+
+_READERS = {
+    "json": read_json,
+    "yaml": read_yaml,
+    "toml": read_toml,
+    "xml": read_xml,
+    "oml": read_oml,
+}
 
 
 def _read_input(path: str) -> str:
@@ -32,10 +59,36 @@ def _write_output(path: Optional[str], text: str) -> None:
             f.write(text)
 
 
+def _encode_validation_result(result: ValidationResult, fmt: str) -> str:
+    """Encode a ValidationResult as text/json/oml -- shared by every command
+    whose result is an {ok, errors} shape (validate; later schema
+    compatible-with/equivalent's boolean is a degenerate case of this)."""
+    if fmt == "text":
+        return str(result)
+    payload: dict[str, Any] = {
+        "ok": result.ok,
+        "errors": [{"path": e.path, "message": e.message} for e in result.errors],
+    }
+    if fmt == "json":
+        return _json.dumps(payload)
+    if fmt == "oml":
+        return doc(payload).to_oml()
+    raise ValueError(f"unknown result format {fmt!r}")  # unreachable: argparse restricts choices
+
+
 def _cmd_format(args: argparse.Namespace) -> int:
     node = read_oml(_read_input(args.input))
     _write_output(args.output, write_oml(node))
     return 0
+
+
+def _cmd_validate(args: argparse.Namespace) -> int:
+    node = _READERS[args.from_](_read_input(args.input))
+    d = Doc(node)
+    s = parse_schema(_read_input(args.schema))
+    result = s.validate(d)
+    print(_encode_validation_result(result, args.result_format))
+    return 0 if result.ok else 1
 
 
 def _cmd_schema_format(args: argparse.Namespace) -> int:
@@ -53,6 +106,15 @@ def _build_parser() -> argparse.ArgumentParser:
     format_p.add_argument("input", help="OML file, or - for stdin")
     format_p.add_argument("-o", "--output", help="output file; omit for stdout")
     format_p.set_defaults(func=_cmd_format)
+
+    validate_p = subparsers.add_parser(
+        "validate", help="check a document against a schema (no schema-directed upgrading)")
+    validate_p.add_argument("input", help="document file, or - for stdin")
+    validate_p.add_argument("--from", dest="from_", required=True, choices=FMT_CHOICES)
+    validate_p.add_argument("--schema", required=True, help="OSD schema file")
+    validate_p.add_argument(
+        "--result-format", choices=RESULT_FORMAT_CHOICES, default="text")
+    validate_p.set_defaults(func=_cmd_validate)
 
     schema_p = subparsers.add_parser("schema", help="operate on a Schema (OSD)")
     schema_sub = schema_p.add_subparsers(dest="schema_command", required=True)
