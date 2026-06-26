@@ -15,10 +15,17 @@ from typing import Any, Optional, Sequence
 
 from . import (
     Doc,
+    DocumentError,
     ParseError,
     SchemaError,
     ValidationResult,
     WriteError,
+    WriteReport,
+    check_json,
+    check_oml,
+    check_toml,
+    check_xml,
+    check_yaml,
     doc,
     infer,
     parse_schema,
@@ -46,12 +53,21 @@ _READERS = {
     "oml": read_oml,
 }
 
+# OML has no strict=/report= -- it's always exactly lossless, so it never
+# needs them; the other four writers accept both (see report.finish_write).
 _WRITERS = {
     "json": write_json,
     "yaml": write_yaml,
     "toml": write_toml,
     "xml": write_xml,
-    "oml": write_oml,
+}
+
+_CHECKERS = {
+    "json": check_json,
+    "yaml": check_yaml,
+    "toml": check_toml,
+    "xml": check_xml,
+    "oml": check_oml,
 }
 
 
@@ -95,6 +111,28 @@ def _cmd_format(args: argparse.Namespace) -> int:
     return 0
 
 
+def _encode_write_report(rep: WriteReport, fmt: str) -> str:
+    """Encode a WriteReport as text/json/oml -- shared by `convert --report`
+    and `check`."""
+    if fmt == "text":
+        return str(rep)
+    payload = [
+        {"path": a.path, "code": a.code, "message": a.message, "severity": a.severity}
+        for a in rep.adjustments
+    ]
+    if fmt == "json":
+        return _json.dumps(payload)
+    if fmt == "oml":
+        return doc({"adjustments": payload}).to_oml()
+    raise ValueError(f"unknown result format {fmt!r}")  # unreachable: argparse restricts choices
+
+
+def _write_to_format(fmt: str, node: Any, *, strict: bool, report: Optional[WriteReport]) -> str:
+    if fmt == "oml":
+        return write_oml(node)
+    return _WRITERS[fmt](node, strict=strict, report=report)
+
+
 def _cmd_convert(args: argparse.Namespace) -> int:
     if args.from_ == "oml" and args.to == "oml":
         print(
@@ -103,8 +141,29 @@ def _cmd_convert(args: argparse.Namespace) -> int:
         return 2
     schema = parse_schema(_read_input(args.schema)) if args.schema else None
     node = _READERS[args.from_](_read_input(args.input), schema=schema)
-    text = _WRITERS[args.to](node)
+    report = WriteReport() if args.report else None
+    try:
+        text = _write_to_format(args.to, node, strict=args.strict, report=report)
+    except WriteError as exc:
+        if exc.report is not None:
+            # --strict refused a lossy write -- a definite "no," not a
+            # usage/parse failure, so it's grouped with exit 1 (§1/§6 of
+            # the CLI spec), not the generic exit 2 main() would give it.
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        raise  # a structural failure (e.g. multi-root XML) -- exit 2 via main()
     _write_output(args.output, text)
+    if args.report:
+        print(_encode_write_report(report, args.result_format), file=sys.stderr)
+    return 0
+
+
+def _cmd_check(args: argparse.Namespace) -> int:
+    node = _READERS[args.from_](_read_input(args.input))
+    rep = _CHECKERS[args.to](node)
+    print(_encode_write_report(rep, args.result_format))
+    if args.strict:
+        return 0 if not rep.adjustments else 1
     return 0
 
 
@@ -181,8 +240,29 @@ def _build_parser() -> argparse.ArgumentParser:
     convert_p.add_argument("--from", dest="from_", required=True, choices=FMT_CHOICES)
     convert_p.add_argument("--to", required=True, choices=FMT_CHOICES)
     convert_p.add_argument("--schema", help="OSD file for schema-directed deserialization")
+    convert_p.add_argument(
+        "--strict", action="store_true",
+        help="refuse to write at all if anything would need adjusting (exit 1)")
+    convert_p.add_argument(
+        "--report", action="store_true",
+        help="print to stderr what got adjusted, alongside writing normally")
+    convert_p.add_argument(
+        "--result-format", choices=RESULT_FORMAT_CHOICES, default="text",
+        help="encoding for --report's output; no effect without --report")
     convert_p.add_argument("-o", "--output", help="output file; omit for stdout")
     convert_p.set_defaults(func=_cmd_convert)
+
+    check_p = subparsers.add_parser(
+        "check", help="report what writing as --to would adjust, without ever writing")
+    check_p.add_argument("input", help="document file, or - for stdin")
+    check_p.add_argument("--from", dest="from_", required=True, choices=FMT_CHOICES)
+    check_p.add_argument("--to", required=True, choices=FMT_CHOICES)
+    check_p.add_argument(
+        "--strict", action="store_true",
+        help="exit 1 if anything would need adjusting, 0 otherwise (default: always 0)")
+    check_p.add_argument(
+        "--result-format", choices=RESULT_FORMAT_CHOICES, default="text")
+    check_p.set_defaults(func=_cmd_check)
 
     validate_p = subparsers.add_parser(
         "validate", help="check a document against a schema (no schema-directed upgrading)")
@@ -239,7 +319,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.func(args)
-    except (ParseError, SchemaError, WriteError, OSError) as exc:
+    except (ParseError, SchemaError, WriteError, DocumentError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

@@ -178,6 +178,164 @@ class TestConvert:
         assert err.startswith("error: ")
 
 
+class TestConvertReportStrict:
+    def test_report_writes_and_prints_adjustment_to_stderr(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        dst = tmp_path / "out.toml"
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "toml", "--report", "-o", str(dst)],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == ""
+        assert "null" in err
+        assert dst.exists()   # the write still happened
+
+    def test_report_with_no_adjustments_still_prints(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": 1}')
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "yaml", "--report"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert err == "no adjustments\n"
+
+    def test_report_result_format_json(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "toml",
+             "--report", "--result-format", "json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert err.startswith("[{")
+        assert '"code"' in err
+
+    def test_result_format_without_report_has_no_effect(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "toml", "--result-format", "json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert err == ""   # no --report -> nothing printed regardless of --result-format
+
+    def test_strict_refuses_lossy_write_exit_1(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        dst = tmp_path / "out.toml"
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "toml", "--strict", "-o", str(dst)],
+            capsys=capsys, monkeypatch=None)
+        assert code == 1
+        assert out == ""
+        assert not dst.exists()   # nothing written
+        assert err.startswith("error: ")
+
+    def test_strict_succeeds_when_nothing_to_adjust(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": 1}')
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "yaml", "--strict"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == "a: 1\n"
+
+    def test_strict_to_oml_never_fails_since_oml_is_always_lossless(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "oml", "--strict"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+
+    def test_multi_root_to_xml_strict_is_still_exit_2_not_1(self, tmp_path, capsys):
+        # a structural impossibility, not a --strict lossiness refusal --
+        # must stay grouped with usage/parse failures (exit 2)
+        p = tmp_path / "in.json"
+        p.write_text('{"a": 1, "b": 2}')
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "xml", "--strict"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 2
+        assert err.startswith("error: ")
+
+
+class TestCheck:
+    def test_reports_without_writing_exit_always_0_by_default(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        code, out, err = run(
+            ["check", str(p), "--from", "json", "--to", "toml"], capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert "null" in out
+        assert err == ""
+
+    def test_no_adjustments_prints_no_adjustments(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": 1}')
+        code, out, err = run(
+            ["check", str(p), "--from", "json", "--to", "yaml"], capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == "no adjustments\n"
+
+    def test_same_format_is_allowed(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": 1}')
+        code, out, err = run(
+            ["check", str(p), "--from", "json", "--to", "json"], capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == "no adjustments\n"
+
+    def test_strict_exits_1_when_something_would_adjust(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        code, out, err = run(
+            ["check", str(p), "--from", "json", "--to", "toml", "--strict"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 1
+
+    def test_strict_exits_0_when_nothing_would_adjust(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": 1}')
+        code, out, err = run(
+            ["check", str(p), "--from", "json", "--to", "toml", "--strict"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+
+    def test_without_strict_always_exits_0_even_with_adjustments(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        code, out, err = run(
+            ["check", str(p), "--from", "json", "--to", "toml"], capsys=capsys, monkeypatch=None)
+        assert code == 0
+
+    def test_result_format_json(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        code, out, err = run(
+            ["check", str(p), "--from", "json", "--to", "toml", "--result-format", "json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out.startswith("[{")
+
+    def test_does_not_write_anything(self, tmp_path, capsys, monkeypatch):
+        # no -o flag exists on check at all -- confirm via argparse rejecting it
+        p = tmp_path / "in.json"
+        p.write_text('{"a": 1}')
+        with pytest.raises(SystemExit) as exc:
+            main(["check", str(p), "--from", "json", "--to", "toml", "-o", "x.toml"])
+        assert exc.value.code == 2
+
+    def test_malformed_input_is_a_clean_error(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{not valid json')
+        code, out, err = run(
+            ["check", str(p), "--from", "json", "--to", "toml"], capsys=capsys, monkeypatch=None)
+        assert code == 2
+        assert err.startswith("error: ")
+
+
 class TestValidate:
     SCHEMA = 'record R { "a": integer }\nroot R\n'
 
