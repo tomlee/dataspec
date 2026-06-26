@@ -53,6 +53,7 @@ nav:
   - Schema model & OSD: schema.md
   - A real-life example: example.md
   - API reference: api.md
+  - CLI: cli.md
   - Schema-directed deserialization: deserialization.md
   - Formats:
       - Overview: formats/overview.md

@@ -97,6 +97,9 @@ pip install omnist                      # core + JSON
 pip install omnist[all]                 # + pyyaml, tomli_w, defusedxml
 ```
 
+Installing also provides an `omnist` CLI command; see [the CLI
+docs](docs/cli.md).
+
 Or from a checkout:
 
 ```bash
@@ -129,6 +132,7 @@ Full index: **[docs/](docs/README.md)**, also browsable as a site at
   feature: `record` definitions, cardinality, the Python builder, and the
   comparison/inference operations.
 - **[API reference](docs/api.md)** — every public name, with signatures.
+- **[CLI](docs/cli.md)** — the `omnist` command-line tool.
 - **[Schema-directed deserialization](docs/deserialization.md)** — what
   changes (and what doesn't) about a Document's Python types when a schema
   is, vs. isn't, passed to a reader.

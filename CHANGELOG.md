@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.2.3] — first CLI commands: `omnist format` / `omnist schema format`
+
+Adds the `omnist` command-line tool (first two commands of a multi-PR
+rollout; see `docs/design/cli-spec.md` for the full planned surface):
+
+- `omnist format <input> [-o OUTPUT]` — canonicalize an OML document
+  (`read_oml` → `write_oml`). `-` for stdin, omit `-o` for stdout.
+- `omnist schema format <schema-file> [-o OUTPUT]` — canonicalize an OSD
+  schema file (`parse_schema` → `to_dsl`), a safe reformat only (no
+  structural change).
+
+Both commands map directly onto the existing public API with no new
+behavior; malformed input raises the library's own `ParseError`/
+`SchemaError`, printed cleanly to stderr with exit code `2`, never an
+uncaught traceback.
+
 ## [v0.2.2] — schema-directed deserialization now guarantees conformance (BREAKING)
 
 **Breaking:** `materialize()` (and `schema=` on every reader / `Doc.from_*`)

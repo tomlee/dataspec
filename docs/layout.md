@@ -36,7 +36,9 @@ is where the logic actually lives.
 
 Outside `canonical/`: `omnist/errors.py` defines the exception hierarchy
 (`OmnistError`, `DocumentError`, `SchemaError`, `ParseError`, `WriteError`,
-`UnsafeXMLWarning`); `omnist/__init__.py` is the public package surface.
+`UnsafeXMLWarning`); `omnist/__init__.py` is the public package surface;
+`omnist/cli.py` is the `omnist` command-line tool (see [cli.md](cli.md)),
+a thin argument-parsing layer over that same public surface.
 
 ## `docs/` page map
 
@@ -54,6 +56,8 @@ Outside `canonical/`: `omnist/errors.py` defines the exception hierarchy
   is the short one.
 - **[api.md](api.md)** -- every public name importable from `omnist`, with
   signatures.
+- **[cli.md](cli.md)** -- the `omnist` command-line tool; the planned full
+  surface is [design/cli-spec.md](design/cli-spec.md).
 - **[glossary.md](glossary.md)** -- one definition per term used across the
   docs and code, grouped by concept area.
 - **[testing.md](testing.md)** -- the test suite layout, coverage tooling
@@ -90,6 +94,9 @@ Full test strategy (coverage target, fuzzing approach, CI) is in
   and asserts a clean exit, since examples are documentation too.
 - **`test_fuzz.py`** -- property-based fuzzing (Hypothesis) of the Document
   model, codecs, and the OSD parser.
+- **`test_cli.py`** -- the `omnist` CLI (`omnist/cli.py`), invoked
+  in-process via `main(argv)`: per-command behavior, stdin/stdout/file I/O,
+  and clean (non-traceback) exits on malformed input.
 
 See also [testing.md](testing.md) for coverage measurement, the fuzzing
 methodology, and what CI runs on every push and PR.
