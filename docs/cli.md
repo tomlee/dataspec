@@ -25,6 +25,36 @@ echo 'a:   1' | omnist format -
 Malformed OML raises the same `ParseError` `read_oml` would, printed to
 stderr as `error: ...`, exit code `2` — nothing written.
 
+## `omnist validate`
+
+```
+omnist validate <input> --from FMT --schema FILE [--result-format text|json|oml]
+```
+
+Reads `<input>` as `FMT` (`json`/`yaml`/`toml`/`xml`/`oml`) **without**
+schema-directed upgrading — the same lenient parse a plain `read_<from>`
+call would produce — then runs `Schema.validate` against the OSD file
+given by `--schema`. This mirrors the library's own validation/
+deserialization split: validation only ever *checks* a value already in
+the document; it never converts anything (see [Schema-directed
+deserialization](deserialization.md) for the upgrading side of that
+split, which is what `convert --schema` does instead).
+
+`--result-format` (default `text`) controls the printed result:
+
+- `text` — `ValidationResult`'s own `"invalid:\n  at $.path: message"`
+  formatting, or `valid`.
+- `json` — `{"ok": bool, "errors": [{"path": str, "message": str}, ...]}`.
+- `oml` — the same `{ok, errors}` shape, OML-encoded.
+
+```sh
+omnist validate order.json --from json --schema order.osd
+omnist validate order.json --from json --schema order.osd --result-format json
+```
+
+Exit `0` if valid, `1` if invalid, `2` on a read/parse error (malformed
+input or schema, printed to stderr as `error: ...`).
+
 ## `omnist schema format`
 
 ```

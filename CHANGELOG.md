@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.2.4] — `omnist validate`
+
+Adds `omnist validate <input> --from FMT --schema FILE [--result-format
+text|json|oml]` (see `docs/design/cli-spec.md`). Reads the input
+**without** schema-directed upgrading (mirroring the library's own
+validation/deserialization split) and runs `Schema.validate`:
+
+- `text` (default): `ValidationResult`'s own `"invalid:\n  at $.path:
+  message"` formatting, or `valid`.
+- `json`/`oml`: `{ok, errors}`, structurally identical either way.
+
+Exit `0` if valid, `1` if invalid, `2` on a read/parse error.
+
 ## [v0.2.3] — first CLI commands: `omnist format` / `omnist schema format`
 
 Adds the `omnist` command-line tool (first two commands of a multi-PR

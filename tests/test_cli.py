@@ -71,6 +71,108 @@ class TestFormat:
         assert exc.value.code == 2
 
 
+class TestValidate:
+    SCHEMA = 'record R { "a": integer }\nroot R\n'
+
+    def test_valid_document_exits_0_text(self, tmp_path, capsys):
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1}')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f)],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == "valid\n"
+        assert err == ""
+
+    def test_invalid_document_exits_1_text(self, tmp_path, capsys):
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1, "b": "extra"}')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f)],
+            capsys=capsys, monkeypatch=None)
+        assert code == 1
+        assert out == "invalid:\n  at $.b: unexpected field\n"
+
+    def test_result_format_json(self, tmp_path, capsys):
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1, "b": "extra"}')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f),
+             "--result-format", "json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 1
+        assert out == (
+            '{"ok": false, "errors": [{"path": "$.b", "message": "unexpected field"}]}\n')
+
+    def test_result_format_oml(self, tmp_path, capsys):
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1}')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f),
+             "--result-format", "oml"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == "ok: true\n"
+
+    def test_does_not_upgrade_scalars(self, tmp_path, capsys):
+        # validate reads without schema-directed upgrading -- an ISO date
+        # string stays a string and is reported as a type mismatch, never
+        # silently upgraded to a real date first
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"d": "2024-01-01"}')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text('record R { "d": date }\nroot R\n')
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f)],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0   # an ISO date string already satisfies `date` per matches_kind
+        assert out == "valid\n"
+
+    def test_unknown_format_value_is_argparse_usage_error(self, tmp_path):
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1}')
+        with pytest.raises(SystemExit) as exc:
+            main(["validate", str(doc_f), "--from", "bogus", "--schema", "s.osd"])
+        assert exc.value.code == 2
+
+    def test_missing_schema_flag_is_argparse_usage_error(self, tmp_path):
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1}')
+        with pytest.raises(SystemExit) as exc:
+            main(["validate", str(doc_f), "--from", "json"])
+        assert exc.value.code == 2
+
+    def test_malformed_input_is_a_clean_error_not_a_traceback(self, tmp_path, capsys):
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{not valid json')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f)],
+            capsys=capsys, monkeypatch=None)
+        assert code == 2
+        assert err.startswith("error: ")
+
+    def test_malformed_schema_is_a_clean_error_not_a_traceback(self, tmp_path, capsys):
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1}')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text('record R { "a": integer }\n')   # no root
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f)],
+            capsys=capsys, monkeypatch=None)
+        assert code == 2
+        assert err.startswith("error: ")
+
+
 class TestSchemaFormat:
     def test_reformats_osd_from_file_to_stdout(self, tmp_path, capsys):
         p = tmp_path / "in.osd"
