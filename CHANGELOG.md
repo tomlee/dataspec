@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.2.12] — Docs: equivalent and normalize in schema reference
+
+Added full examples for `Schema.equivalent()` and `Schema.normalize()` to
+`docs/schema.md#operations-compare-and-infer`. Both operations were already
+implemented and tested, but only mentioned in a cross-reference. The section
+now shows them alongside `compatible_with` and `infer` with self-contained
+code snippets. Backed by new assertions in `tests/test_docs.py`.
+See issue [#136](https://github.com/omnist-dev/omnist/issues/136).
+
 ## [v0.2.11] — Compact (single-line) output for OML and OSD
 
 `write_oml(node, indent=None)` and `to_osd(schema, indent=None)` (also
