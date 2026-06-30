@@ -157,6 +157,40 @@ v1.compatible_with(v2)     # True  -- every v1 document is still valid under v2
 v2.compatible_with(v1)     # False -- a v2 document with a port isn't valid under v1
 ```
 
+`equivalent(other)` is the symmetric version — True when both schemas accept
+exactly the same set of documents.  Two schemas built from different OSD text
+can be equivalent if they describe the same structure:
+
+```python
+s1 = parse_schema('record R { "x": integer }\nroot R')
+s2 = parse_schema('record Alias { "x": integer }\nroot Alias')
+
+s1.equivalent(s2)      # True  -- same structure, different record name
+s1.compatible_with(s2) # True  (both directions are True when equivalent)
+s2.compatible_with(s1) # True
+```
+
+`normalize()` returns an equivalent schema where structurally-identical named
+records have been merged into one.  This is useful after `infer` or
+programmatic construction, which may produce duplicate record definitions:
+
+```python
+s = parse_schema("""
+record A { "x": integer }
+record B { "x": integer }
+root A
+""")
+
+n = s.normalize()
+print(n.to_osd())
+# record A {
+#     "x": integer,
+# }
+# root A
+```
+
+`B` is gone — it was merged into `A` because they are structurally identical.
+
 `infer(samples)` drafts a `Schema` from example Documents instead of writing
 OSD by hand:
 
@@ -171,10 +205,9 @@ print(infer([doc({"host": "b", "port": 80}), doc({"host": "a"})]).to_osd())
 # root Root
 ```
 
-See [the guide](guide.md#operations) for the full set of operations
-(`compatible_with`, `equivalent`, `normalize`) and
-[the guide's inference section](guide.md#inferring-a-schema) for `infer`'s
-exact cardinality and nullability rules.
+See [the guide](guide.md#operations) for additional detail on all four
+operations and [the guide's inference section](guide.md#inferring-a-schema)
+for `infer`'s exact cardinality and nullability rules.
 
 ## See also
 

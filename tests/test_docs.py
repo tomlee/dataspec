@@ -31,7 +31,7 @@ def test_readme_at_a_glance():
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.2.11"
+    assert ds.__version__ == "0.2.12"
 
 
 def test_quickstart():
@@ -165,6 +165,19 @@ def test_schema_page_operations_and_infer():
     v2 = parse_schema('record R { "host": string, "port" [0,1]: integer }\nroot R')
     assert v1.compatible_with(v2)
     assert not v2.compatible_with(v1)
+
+    # equivalent: same structure, different record name
+    s1 = parse_schema('record R { "x": integer }\nroot R')
+    s2 = parse_schema('record Alias { "x": integer }\nroot Alias')
+    assert s1.equivalent(s2)
+    assert s1.compatible_with(s2)
+    assert s2.compatible_with(s1)
+
+    # normalize: structurally-identical records merged
+    s = parse_schema('record A { "x": integer }\nrecord B { "x": integer }\nroot A')
+    n = s.normalize()
+    assert n.equivalent(s)
+    assert list(n.env.keys()) == ["A"]  # B merged into A
 
     assert infer([doc({"host": "b", "port": 80}), doc({"host": "a"})]).to_osd() == (
         'record Root {\n    "host": string,\n    "port" [0,1]: integer,\n}\nroot Root\n')
@@ -415,7 +428,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.2.11"
+    assert ds.__version__ == "0.2.12"
 
 
 def test_api_docs_schema_raises():
