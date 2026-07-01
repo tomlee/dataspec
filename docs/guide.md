@@ -179,7 +179,7 @@ v2 = parse_schema('record R { "host": string, "port" [0,1]: integer }\nroot R')
 v1.compatible_with(v2)     # True  -- every v1 doc is valid under v2
 v2.compatible_with(v1)     # False
 v1.equivalent(v2)          # False
-v1.normalize()             # merge structurally identical named definitions
+v1.normalize()             # canonical minimal equivalent schema (fewest records)
 ```
 
 A schema can also describe **no** documents at all -- a mandatory ref cycle

@@ -134,7 +134,7 @@ names an entry not present in `env`.
 | `.accepts(doc) -> bool` | `validate(doc).ok` |
 | `.compatible_with(other) -> bool` | every document this accepts, `other` also accepts (backward-compat); **vacuously `True`** if this schema is empty (see below) |
 | `.equivalent(other) -> bool` | both accept exactly the same documents; two distinct empty schemas are always equivalent |
-| `.normalize() -> Schema` | merge structurally-identical named definitions |
+| `.normalize() -> Schema` | canonical minimal equivalent schema — fewest env records, unique up to record naming (partition refinement, i.e. `prune()` then merge equivalent records) |
 | `.is_empty() -> bool` | `True` iff the root record is unsatisfiable — no finite document conforms (e.g. a mandatory ref cycle) |
 | `.prune() -> Schema` | an equivalent schema with unreachable records, never-emittable (`max == 0`) fields, and optional-but-unsatisfiable fields removed |
 | `.to_osd(*, indent=4) -> str` | serialize back to OSD; `indent=None` for a single-line, compact form |

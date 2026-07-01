@@ -132,8 +132,21 @@ valid. Defined formally in
   (`max == 0`) fields, and optional-but-unsatisfiable fields removed. A
   precondition `compatible_with`/`equivalent` need to be correct on
   unsatisfiable input, though callers don't need to prune manually — those
-  methods account for satisfiability internally. See
+  methods account for satisfiability internally. Also the mandatory first
+  step of `normalize()`. See
   [model spec §12](design/model.md#12-satisfiability-and-pruning).
+- **normalize** / **`Schema.normalize()`** — the paper's Algorithm 2
+  (MinimizeSA): partition refinement (the DFA-minimization family) that
+  returns the *canonical minimal form* equivalent to its input. Prunes
+  first, then repeatedly splits blocks of env records apart wherever their
+  ref-typed fields point at still-distinguishable targets, then merges
+  each stable block to one representative name. See
+  [model spec §13](design/model.md#13-minimization-and-canonical-form).
+- **canonical form** / **minimal schema** — the result of `normalize()`:
+  the fewest possible env records equivalent to a given schema, unique up
+  to record naming (paper Theorems 3-4). Two equivalent schemas normalize
+  to isomorphic results. See
+  [model spec §13](design/model.md#13-minimization-and-canonical-form).
 
 ## OML / OSD format terms
 

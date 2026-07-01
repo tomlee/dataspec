@@ -278,8 +278,9 @@ omnist schema format <schema-file> [--compact] [-o OUTPUT]
 Canonicalizes an OSD ([Omnist Schema Definition](schema.md)) file —
 `parse_schema` then `to_osd`. Same records, same names, just canonical
 whitespace/field order; it never changes a schema's structure (contrast
-[`Schema.normalize()`](schema.md#operations-compare-and-infer), which can
-merge structurally-identical records).
+[`Schema.normalize()`](schema.md#operations-compare-and-infer), which
+computes the canonical minimal equivalent schema — fewest records,
+merging more than just plain structurally-identical ones).
 
 ```sh
 $ cat examples/cli/messy-person.osd
@@ -311,10 +312,11 @@ omnist schema normalize <schema-file> [--compact] [-o OUTPUT]
 ```
 
 `Schema.normalize()`, written back out as OSD — unlike `schema format`,
-this *can* change a schema's structure (merging separately-named records
-that are structurally identical). `duplicate-records.osd` defines `Employee`
-and `Customer` with the exact same shape (just a `name`); normalizing merges
-them into one:
+this *can* change a schema's structure: it computes the canonical minimal
+schema equivalent to the input (fewest env records, unique up to naming;
+see [the schema doc](schema.md#operations-compare-and-infer)).
+`duplicate-records.osd` defines `Employee` and `Customer` with the exact
+same shape (just a `name`); normalizing merges them into one:
 
 ```sh
 $ cat examples/cli/duplicate-records.osd
@@ -323,12 +325,12 @@ record Customer { "name": string }
 record Company  { "employee": Employee, "customer": Customer }
 root Company
 $ omnist schema normalize examples/cli/duplicate-records.osd
-record Customer {
-    "name": string,
-}
 record Company {
     "employee": Customer,
     "customer": Customer,
+}
+record Customer {
+    "name": string,
 }
 root Company
 ```
