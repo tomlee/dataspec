@@ -65,7 +65,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.2.14"
+        assert ds.__version__ == "0.2.15"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -432,6 +432,94 @@ class TestOperations:
         n = normalize(s)
         assert len(n.env) < len(s.env)
         assert equivalent(s, n)
+
+
+class TestNormalizePartitionRefinement:
+    """MinimizeSA (issue #140): normalize is now partition refinement, not
+    a single syntactic merge pass -- it produces the canonical *minimum*
+    equivalent schema (fewest env records, unique up to naming)."""
+
+    def test_ref_chained_duplicates_merge_in_one_pass(self):
+        # Previously: one pass merged C/D but left A/B (now structurally
+        # identical) unmerged, requiring a second normalize() call.
+        s = parse_schema(
+            'record A { "x": C }\nrecord B { "x": D }\n'
+            'record C { "y": integer }\nrecord D { "y": integer }\n'
+            'record Root { "a": A, "b": B }\nroot Root')
+        n = s.normalize()
+        assert sorted(n.env) == ["A", "C", "Root"]
+        assert n.equivalent(s)
+
+    def test_recursive_twins_merge(self):
+        # Mutually-recursive twins are equivalent() but syntactic keying
+        # (the old normalize) never merged them, even iterated.
+        s = parse_schema(
+            'record Root { "p" [0,1]: P, "q" [0,1]: Q }\n'
+            'record P { "next" [0,1]: P }\nrecord Q { "next" [0,1]: Q }\n'
+            'root Root')
+        n = s.normalize()
+        assert len(n.env) == 2
+        assert n.equivalent(s)
+
+    def test_unreachable_record_dropped(self):
+        s = parse_schema('record R { "x": integer }\n'
+                         'record Orphan { "y": string }\nroot R')
+        assert sorted(s.normalize().env) == ["R"]
+
+    def test_no_over_merge_on_different_scalar_types(self):
+        s = parse_schema('record A { "x": integer }\nrecord B { "x": string }\n'
+                         'record Root { "a": A, "b": B }\nroot Root')
+        assert len(s.normalize().env) == 3
+
+    def test_idempotent(self):
+        s = parse_schema(
+            'record A { "x": C }\nrecord B { "x": D }\n'
+            'record C { "y": integer }\nrecord D { "y": integer }\n'
+            'record Root { "a": A, "b": B }\nroot Root')
+        once = s.normalize()
+        twice = once.normalize()
+        assert twice.equivalent(once)
+        assert sorted(twice.env) == sorted(once.env)
+
+    def test_field_order_does_not_split_a_block(self):
+        # Design decision: validation ignores field order (Record is a set
+        # of labeled fields), so local_signature sorts fields by label --
+        # two records with the same fields in a different order MUST merge.
+        s = parse_schema(
+            'record A { "x": integer, "y": string }\n'
+            'record B { "y": string, "x": integer }\n'
+            'record Root { "a": A, "b": B }\nroot Root')
+        n = s.normalize()
+        assert sorted(n.env) == ["A", "Root"]
+        assert n.equivalent(s)
+
+    def test_empty_schema_returns_pruned_schema_unchanged(self):
+        # prune() deliberately keeps an unsatisfiable root's fields intact;
+        # partition refinement over that unsatisfiable core isn't
+        # meaningful, so normalize just returns the pruned schema.
+        s = parse_schema('record A { "x": B }\nrecord B { "y": A }\nroot A')
+        assert s.is_empty()
+        n = s.normalize()
+        assert n.is_empty()
+        assert sorted(n.env) == ["A", "B"]
+        assert n.root.name == "A"
+
+    def test_multi_round_refinement_needed(self):
+        # Initial local_signature partition wrongly starts A/B and P/Q
+        # together (same shape, ref targets excluded); P/Q split apart in
+        # round one once R/S (differing scalar type) are distinguished,
+        # and A/B only split apart in round two as a consequence -- this
+        # exercises more than one refinement iteration before the fixpoint.
+        s = parse_schema(
+            'record Root { "a": A, "b": B }\n'
+            'record A { "x": P }\nrecord B { "x": Q }\n'
+            'record P { "v": integer, "w": R }\n'
+            'record Q { "v": integer, "w": S }\n'
+            'record R { "n": integer }\nrecord S { "n": string }\n'
+            'root Root')
+        n = s.normalize()
+        assert sorted(n.env) == ["A", "B", "P", "Q", "R", "Root", "S"]
+        assert n.equivalent(s)
 
 
 # ------------------------------------------------- empty schemas / prune

@@ -209,12 +209,12 @@ class TestSchemaNormalizeExample:
             ["schema", "normalize", "examples/cli/duplicate-records.osd"], capsys)
         assert code == 0
         assert out == (
-            'record Customer {\n'
-            '    "name": string,\n'
-            '}\n'
             'record Company {\n'
             '    "employee": Customer,\n'
             '    "customer": Customer,\n'
+            '}\n'
+            'record Customer {\n'
+            '    "name": string,\n'
             '}\n'
             'root Company\n'
         )

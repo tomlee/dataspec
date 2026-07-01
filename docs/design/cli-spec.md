@@ -123,9 +123,10 @@ omnist schema format messy.osd --compact
 
 ### `omnist schema normalize <schema-file> [--compact] [-o OUTPUT]`
 
-`Schema.normalize()`, written back as OSD. May merge structurally-
-identical records — a structural change, unlike `schema format`.
-`--compact` emits a single-line schema, same as `schema format`.
+`Schema.normalize()`, written back as OSD. Computes the canonical minimal
+equivalent schema (partition refinement, fewest env records, unique up to
+naming) — a structural change, unlike `schema format`. `--compact` emits a
+single-line schema, same as `schema format`.
 
 ### `omnist schema compatible-with <a> <b> [--result-format text|json|oml]`
 

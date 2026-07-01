@@ -4,6 +4,39 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.2.15] — Rewrite `normalize()` as partition-refinement minimization (canonical minimal form)
+
+**Changed (behavior-affecting):** `Schema.normalize()` was a single
+syntactic merge pass keyed by full structural identity (including ref
+target names) -- neither minimal nor canonical, and violated its own
+contract (a ref-chained pair of duplicate records only merged after a
+*second* `normalize()` call; mutually-recursive "twin" records that are
+genuinely `equivalent()` never merged at all, no matter how many times you
+called it). `normalize()` is now the paper's Algorithm 2 (MinimizeSA):
+partition refinement, the same family of algorithm as DFA minimization.
+It prunes first (`Schema.prune()`, added in v0.2.14), partitions env
+records by a target-blind local signature, then repeatedly splits blocks
+apart wherever a same-labeled ref field points at a still-distinguishable
+target, until stable -- producing the canonical **minimal** equivalent
+schema (fewest env records), unique up to record naming.
+
+This changes observable output in three ways:
+- **Unreachable records are now dropped** (previously survived --
+  `normalize()` never looked at reachability).
+- **Ref-chained duplicates merge in one call**, and **mutually-recursive
+  twin records now merge** when truly equivalent (previously never did).
+- **`max == 0` fields and optional-but-unsatisfiable fields disappear**,
+  via the new mandatory `prune()` step.
+
+**Design decision:** the initial partition (`local_signature`,
+`ops/signature.py`) sorts a record's fields by label rather than keeping
+declaration order, since `Record` validation is order-independent --
+two records with the same fields in a different order now correctly
+merge (previously they were structurally distinct and never did).
+
+See [model spec §13](docs/design/model.md#13-minimization-and-canonical-form)
+for the full `normalize()` <-> MinimizeSA correspondence.
+
 ## [v0.2.14] — Fix `compatible_with`/`equivalent` for empty-language schemas; add `Schema.prune()`/`Schema.is_empty()`
 
 **Fixed:** a schema with a mandatory ref cycle (e.g. `record A { "x": B }

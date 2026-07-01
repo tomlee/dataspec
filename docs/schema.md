@@ -170,9 +170,19 @@ s1.compatible_with(s2) # True  (both directions are True when equivalent)
 s2.compatible_with(s1) # True
 ```
 
-`normalize()` returns an equivalent schema where structurally-identical named
-records have been merged into one.  This is useful after `infer` or
-programmatic construction, which may produce duplicate record definitions:
+`normalize()` returns the canonical **minimal** schema equivalent to this
+one — the fewest possible env records, unique up to record naming. It works
+by partition refinement, the same family of algorithm as DFA minimization:
+records start out grouped by local shape, then groups get split apart
+wherever their same-labeled ref fields point at still-distinguishable
+targets, repeating until nothing more can be told apart. This merges more
+than plain structural identity would — ref-chained duplicates collapse in
+one call (no need to call `normalize()` twice), and even mutually-recursive
+"twin" records merge when they're truly equivalent. Unreachable records and
+never-emittable fields are pruned first, since a record's shape (and so
+what counts as "identical") is only well-defined once dead structure is
+gone. Useful after `infer` or programmatic construction, either of which
+may produce duplicate record definitions:
 
 ```python
 s = parse_schema("""
@@ -189,7 +199,11 @@ print(n.to_osd())
 # root A
 ```
 
-`B` is gone — it was merged into `A` because they are structurally identical.
+`B` is gone — it was merged into `A` because they are structurally
+identical (and `A` is unreachable-record-free and already minimal, so this
+one-record example doesn't show the ref-chained/recursive merging above;
+see `tests/test_canonical.py`'s `TestNormalizePartitionRefinement` for
+those cases).
 
 `infer(samples)` drafts a `Schema` from example Documents instead of writing
 OSD by hand:

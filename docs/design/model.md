@@ -341,6 +341,76 @@ See [the schema doc](../schema.md#empty-schemas) for a worked example and
 
 ---
 
+## 13. Minimization and canonical form
+
+`Schema.normalize()` (`ops/minimize.py`) is the paper's Algorithm 2
+(MinimizeSA) — partition refinement, the same family of algorithm as DFA
+minimization. It computes the **minimal** schema equivalent to its input:
+the fewest possible env records, and that result is **canonical** — unique
+up to record naming (paper Theorems 3-4; they transfer directly to
+omnist's deterministic counting-language restriction, since determinism is
+exactly what makes "same label leads to the same block" well-defined).
+
+**`normalize()` <-> MinimizeSA.**
+
+1. `s = prune(s)` — mandatory first step (Section 12's MakeUsefulSA
+   analog). Minimization is only meaningful over a *useful* automaton:
+   without pruning, two semantically-equal records could be kept apart by
+   a never-emittable field or by one being unreachable, which would make
+   the "minimal" result depend on incidental syntactic debris rather than
+   the language the schema accepts.
+2. **Initial partition**: env records are grouped by `local_signature`
+   (`ops/signature.py`) — each field's `(label, min, max, shape)`, where
+   `shape` is `("scalar", name, nullable)` or `("ref",)`; ref *target
+   names* are deliberately excluded so records that turn out equivalent
+   via differently-named targets still start in the same block.
+3. **Refine**: repeatedly split any block containing two records that
+   disagree, for some field label, on which *block* their ref-typed
+   field's target currently belongs to. This is exactly Moore's-algorithm-
+   style DFA state partitioning: two states (here, records) are
+   equivalent iff every transition (here, ref field) leads to equivalent
+   states, computed as a fixpoint over a monotonically-refining partition
+   of a finite set — always terminates.
+4. **Merge**: each stable block collapses to one representative — its
+   lexicographically smallest member name, a deterministic tie-break, not
+   part of the paper — and every ref (plus the root) is remapped to
+   representatives.
+
+**Design decision: field order does not distinguish records.**
+`local_signature` sorts a record's fields by label rather than keeping
+declaration order. `Record` fields are validated as an unordered labeled
+set (Section 2/`schema.py`'s own docstring: "Validation ignores order"),
+and OSD's printed field order is purely cosmetic — so two records
+declaring the same fields in a different order accept exactly the same
+documents and **must** land in the same partition block. Keying by
+declaration order instead would be a real bug: it would incorrectly split
+semantically-identical records and could prevent them from ever merging.
+This is exercised by `tests/test_canonical.py`'s
+`TestNormalizePartitionRefinement.test_field_order_does_not_split_a_block`.
+
+**The unsatisfiable-root case.** Per Section 12, `prune()` deliberately
+leaves an unsatisfiable root's own fields untouched — pruning them would
+silently produce a different, satisfiable schema. Partition refinement
+over that unsatisfiable core isn't meaningful (there's no "fewest records"
+notion when the schema's language is empty), so `normalize()` special-
+cases `is_empty()` and returns the pruned schema as-is.
+
+**Behavior changes from the pre-#140 implementation** (a single syntactic
+merge pass keyed by full structural identity, including ref target names):
+unreachable env records are now dropped (previously survived, since the
+old pass never looked at reachability); ref-chained duplicates and
+mutually-recursive "twin" records now merge (previously never did, even
+under repeated calls, since target-name-inclusive keying can never
+recognize records as equivalent through an indirection); `max == 0`
+fields and optional-but-unsatisfiable fields disappear via the mandatory
+`prune()` step.
+
+See [the schema doc](../schema.md#operations-compare-and-infer) for the
+worked example and [the glossary](../glossary.md) for *normalize* /
+*canonical form* / *minimal schema*.
+
+---
+
 ## Appendix: worked example
 
 Schema:
