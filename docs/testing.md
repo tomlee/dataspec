@@ -60,10 +60,10 @@ omnist/__init__.py                   12      0   100%
 omnist/canonical/__init__.py         12      0   100%
 omnist/canonical/deserialize.py      75      0   100%
 omnist/canonical/document.py        202      0   100%
-omnist/canonical/ops/__init__.py      4      0   100%
-omnist/canonical/ops/minimize.py     35      0   100%
-omnist/canonical/ops/signature.py    35      0   100%
-omnist/canonical/ops/subschema.py    60      0   100%
+omnist/canonical/ops/__init__.py      3      0   100%
+omnist/canonical/ops/minimize.py     25      0   100%
+omnist/canonical/ops/signature.py    10      0   100%
+omnist/canonical/ops/subschema.py    48      0   100%
 omnist/canonical/osd.py             149      0   100%
 omnist/canonical/formats.py         217      0   100%
 omnist/canonical/infer.py            77      0   100%
@@ -73,7 +73,7 @@ omnist/canonical/report.py           35      0   100%
 omnist/canonical/schema.py          247      0   100%
 omnist/errors.py                     10      0   100%
 ---------------------------------------------------------------
-(package total: 1842 stmts, 0 missed, 100%)
+(rows above: 1591 stmts, 0 missed, 100%)
 ```
 
 (`tests/test_fuzz.py` and `tests/test_docs.py` themselves show a handful of
