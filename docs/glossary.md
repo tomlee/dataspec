@@ -115,6 +115,25 @@ valid. Defined formally in
   Distinguished from **OSD** (below) by context: "a schema" is the
   parsed/constructed object or the idea; "OSD" is the text syntax used
   to write one.
+- **satisfiable** — a record admits at least one finite document; the least
+  fixpoint over `min >= 1` fields being `Scalar`s or `Ref`s to other
+  satisfiable records (`ops/prune.py`, `satisfiable_set`). The complement
+  of the paper's "useless"/"irrational" states. See
+  [model spec §12](design/model.md#12-satisfiability-and-pruning).
+- **empty schema** — a `Schema` whose root record is unsatisfiable, so it
+  accepts the empty language (no document at all) — typically a mandatory
+  ref cycle with no base case. `Schema.is_empty()` detects it. An empty
+  schema is vacuously `compatible_with` any other schema, and any two
+  empty schemas are `equivalent`. See
+  [the schema doc](schema.md#empty-schemas) and
+  [model spec §12](design/model.md#12-satisfiability-and-pruning).
+- **prune** / **`Schema.prune()`** — the paper's MakeUsefulSA analog:
+  returns an equivalent schema with unreachable records, never-emittable
+  (`max == 0`) fields, and optional-but-unsatisfiable fields removed. A
+  precondition `compatible_with`/`equivalent` need to be correct on
+  unsatisfiable input, though callers don't need to prune manually — those
+  methods account for satisfiability internally. See
+  [model spec §12](design/model.md#12-satisfiability-and-pruning).
 
 ## OML / OSD format terms
 

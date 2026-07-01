@@ -132,12 +132,22 @@ names an entry not present in `env`.
 |---|---|
 | `.validate(doc) -> ValidationResult` | check a `Doc` against this schema |
 | `.accepts(doc) -> bool` | `validate(doc).ok` |
-| `.compatible_with(other) -> bool` | every document this accepts, `other` also accepts (backward-compat) |
-| `.equivalent(other) -> bool` | both accept exactly the same documents |
+| `.compatible_with(other) -> bool` | every document this accepts, `other` also accepts (backward-compat); **vacuously `True`** if this schema is empty (see below) |
+| `.equivalent(other) -> bool` | both accept exactly the same documents; two distinct empty schemas are always equivalent |
 | `.normalize() -> Schema` | merge structurally-identical named definitions |
+| `.is_empty() -> bool` | `True` iff the root record is unsatisfiable — no finite document conforms (e.g. a mandatory ref cycle) |
+| `.prune() -> Schema` | an equivalent schema with unreachable records, never-emittable (`max == 0`) fields, and optional-but-unsatisfiable fields removed |
 | `.to_osd(*, indent=4) -> str` | serialize back to OSD; `indent=None` for a single-line, compact form |
 | `.root`, `.env` | the root `Ref` and the name→record map |
 | `.resolve(t) -> Record` | follow a `Ref` chain to a `Record` |
+
+**Vacuity note.** `compatible_with`/`equivalent` are defined over the set of
+documents a schema accepts. An unsatisfiable schema (`is_empty()` is
+`True`) accepts no documents at all, so it is trivially `compatible_with`
+any other schema, and any two empty schemas are `equivalent` to each other
+regardless of how their record definitions look. See
+[the schema doc](schema.md#empty-schemas) and
+[model spec §12](design/model.md#12-satisfiability-and-pruning).
 
 ### Definition & type classes
 

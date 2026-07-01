@@ -4,6 +4,38 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.2.14] — Fix `compatible_with`/`equivalent` for empty-language schemas; add `Schema.prune()`/`Schema.is_empty()`
+
+**Fixed:** a schema with a mandatory ref cycle (e.g. `record A { "x": B }
+record B { "y": A } root A`) accepts no finite document -- the empty
+language -- but `compatible_with`/`equivalent` gave wrong answers for it:
+an empty schema was reported as *not* `compatible_with` anything, and two
+distinct empty schemas were reported as *not* `equivalent`, when both are
+vacuously true (a schema that emits no documents is trivially a subschema
+of any other schema). Root cause: the paper's Algorithm 4 (SubschemaSA)
+assumes its precondition MakeUsefulSA (useless-state removal) has already
+run; omnist's `_sub` ran the coinductive cycle rule without it, so an
+unsatisfiable record's self-matching cycle was read as "compatible with
+nothing" instead of "vacuously compatible with everything."
+
+Adds `omnist/canonical/ops/prune.py`: `satisfiable_set(s)` (least-fixpoint
+satisfiability -- a record is satisfiable iff every mandatory field is a
+`Scalar` or a `Ref` to a satisfiable record), plus two new public
+operations, `Schema.is_empty()` (True iff the root is unsatisfiable) and
+`Schema.prune()` (the paper's MakeUsefulSA analog -- an equivalent schema
+with unreachable records, never-emittable `max == 0` fields, and
+optional-but-unsatisfiable fields removed; the root's own fields are left
+untouched when the root itself is unsatisfiable, since pruning them would
+silently produce a different, satisfiable schema). `ops/subschema.py` now
+computes the A-side's satisfiable set once per `compatible_with` call,
+returns vacuously `True` for an unsatisfiable A-side record, skips optional
+A-fields whose type is unsatisfiable, and replaces the per-path `seen` set
+with a shared memo dict (coinductive assumption on entry, real result
+before returning) to avoid exponential re-verification on DAG-shaped
+schemas.
+
+See issue [#139](https://github.com/omnist-dev/omnist/issues/139).
+
 ## [v0.2.13] — Internal refactor: operations package groundwork
 
 Internal refactoring with zero behavior change (full test suite passes

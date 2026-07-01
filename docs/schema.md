@@ -209,6 +209,55 @@ See [the guide](guide.md#operations) for additional detail on all four
 operations and [the guide's inference section](guide.md#inferring-a-schema)
 for `infer`'s exact cardinality and nullability rules.
 
+### Empty schemas
+
+A schema can describe **no finite document at all** — the empty language —
+when satisfying it would require an infinite structure. This happens with a
+*mandatory* ref cycle: every record in the cycle requires the next one, so
+there is no base case to stop at.
+
+```python
+empty = parse_schema('record A { "x": B }\nrecord B { "y": A }\nroot A')
+other = parse_schema('record C { "z": integer }\nroot C')
+
+empty.is_empty()               # True  -- no finite document satisfies A
+empty.compatible_with(other)   # True  -- vacuous: it emits no documents at all
+other.compatible_with(empty)   # False -- other's documents aren't accepted by empty
+
+empty2 = parse_schema('record P { "q": P }\nroot P')
+empty.equivalent(empty2)       # True  -- both accept exactly nothing
+```
+
+This is intentional, not a special case bolted on: `compatible_with` means
+"every document `a` accepts is also accepted by `b`," and when `a` accepts
+no documents, that's vacuously true for any `b`. Two schemas that both
+accept nothing are trivially equivalent, regardless of how different their
+record definitions look.
+
+`is_empty()` tells you whether the schema is one of these — root record
+unsatisfiable, no finite document exists. `prune()` returns an equivalent
+schema with everything that can never actually appear removed: records
+unreachable from root, fields that can never be emitted (`[0,0]`
+cardinality), and optional fields whose type is itself unsatisfiable:
+
+```python
+s = parse_schema('record R { "x" [0,1]: Dead }\nrecord Dead { "d": Dead }\n'
+                 'root R')
+s.is_empty()                   # False -- R itself doesn't require Dead
+p = s.prune()
+p.to_osd()
+# record R {
+# }
+# root R
+```
+
+`x` is gone: it's optional, and its type (`Dead`) can never be satisfied, so
+a document that has `x` present can never actually exist. `prune(s)` is
+always `equivalent` to `s`. If the *root* itself is unsatisfiable, `prune()`
+leaves the root record's fields untouched — pruning them would silently
+produce a different, satisfiable schema, breaking the equivalence
+guarantee.
+
 ## See also
 
 - [User guide](guide.md) — the practical tour, including the Python builder,

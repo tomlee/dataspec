@@ -29,9 +29,11 @@ from omnist.canonical import (
     formats,
     get_format,
     infer,
+    is_empty,
     materialize,
     normalize,
     parse_schema,
+    prune,
     read_json,
     read_toml,
     read_xml,
@@ -63,7 +65,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.2.13"
+        assert ds.__version__ == "0.2.14"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -430,6 +432,101 @@ class TestOperations:
         n = normalize(s)
         assert len(n.env) < len(s.env)
         assert equivalent(s, n)
+
+
+# ------------------------------------------------- empty schemas / prune
+class TestEmptySchemas:
+    """Unsatisfiable (mandatory ref cycle) schemas accept no finite document
+    -- the empty language. Verified failure cases from issue #139: such a
+    schema must be vacuously compatible_with anything, and any two distinct
+    empty schemas must be equivalent."""
+
+    def _mandatory_cycle(self):
+        return parse_schema('record A { "x": B }\nrecord B { "y": A }\nroot A')
+
+    def test_empty_schema_is_vacuously_compatible_with_anything(self):
+        empty = self._mandatory_cycle()
+        other = parse_schema('record C { "z": integer }\nroot C')
+        assert compatible_with(empty, other)
+        assert not compatible_with(other, empty)
+
+    def test_two_distinct_empty_schemas_are_equivalent(self):
+        empty1 = self._mandatory_cycle()
+        empty2 = parse_schema('record P { "q": P }\nroot P')
+        assert equivalent(empty1, empty2)
+
+    def test_is_empty_true_for_mandatory_cycle(self):
+        assert self._mandatory_cycle().is_empty()
+
+    def test_is_empty_false_when_cycle_broken_by_optional(self):
+        s = parse_schema('record A { "x" [0,1]: B }\nrecord B { "y": A }\nroot A')
+        assert not s.is_empty()
+
+    def test_is_empty_false_for_scalar_only_schema(self):
+        s = parse_schema('record R { "a": integer }\nroot R')
+        assert not s.is_empty()
+
+    def test_is_empty_free_function_matches_method(self):
+        s = self._mandatory_cycle()
+        assert is_empty(s) == s.is_empty()
+
+    def test_optional_dead_field_does_not_block_compatibility(self):
+        # R has an optional field of an unsatisfiable type -- it can never
+        # actually be emitted, so R itself is satisfiable and compatible
+        # with an R2 that simply doesn't declare that field.
+        r = parse_schema('record R { "x" [0,1]: Dead }\nrecord Dead { "d": Dead }\n'
+                         'root R')
+        r2 = parse_schema('record R2 { }\nroot R2')
+        assert not r.is_empty()
+        assert compatible_with(r, r2)
+
+    def test_prune_drops_unreachable_records(self):
+        s = parse_schema('record A { "x": integer }\nrecord Unused { "y": integer }\n'
+                         'root A')
+        p = s.prune()
+        assert "Unused" not in p.env
+        assert "A" in p.env
+
+    def test_prune_drops_max_zero_fields(self):
+        s = parse_schema('record R { "dead" [0,0]: integer, "live": integer }\nroot R')
+        p = s.prune()
+        assert p.env["R"].field("dead") is None
+        assert p.env["R"].field("live") is not None
+
+    def test_prune_drops_optional_unsatisfiable_fields(self):
+        s = parse_schema('record R { "x" [0,1]: Dead }\nrecord Dead { "d": Dead }\n'
+                         'root R')
+        p = s.prune()
+        assert p.env["R"].field("x") is None
+        assert "Dead" not in p.env
+
+    def test_prune_is_equivalent(self):
+        s = parse_schema('record R { "dead" [0,0]: integer, "live": integer }\n'
+                         'record Unused { "z": integer }\nroot R')
+        assert s.prune().equivalent(s)
+
+    def test_prune_is_idempotent(self):
+        s = parse_schema('record R { "dead" [0,0]: integer, "live": integer }\n'
+                         'record Unused { "z": integer }\nroot R')
+        once = s.prune()
+        twice = once.prune()
+        assert once.env.keys() == twice.env.keys()
+        for name in once.env:
+            assert len(once.env[name].fields) == len(twice.env[name].fields)
+
+    def test_prune_free_function_matches_method(self):
+        s = parse_schema('record R { "dead" [0,0]: integer }\nroot R')
+        assert prune(s).equivalent(s.prune())
+
+    def test_prune_on_unsatisfiable_root_keeps_it_intact(self):
+        # The root's own mandatory cycle is what makes it unsatisfiable --
+        # pruning it away would silently produce a different, satisfiable
+        # schema. See ops/prune.py's docstring for the design rationale.
+        s = self._mandatory_cycle()
+        p = s.prune()
+        assert p.is_empty()
+        assert p.env["A"].field("x") is not None
+        assert p.equivalent(s)
 
 
 # ----------------------------------------------------------- codecs

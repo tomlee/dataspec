@@ -179,8 +179,22 @@ v2 = parse_schema('record R { "host": string, "port" [0,1]: integer }\nroot R')
 v1.compatible_with(v2)     # True  -- every v1 doc is valid under v2
 v2.compatible_with(v1)     # False
 v1.equivalent(v2)          # False
-s.normalize()              # merge structurally identical named definitions
+v1.normalize()             # merge structurally identical named definitions
 ```
+
+A schema can also describe **no** documents at all -- a mandatory ref cycle
+with no base case. `is_empty()` detects this; `prune()` strips out
+never-emittable fields and unreachable records, returning an equivalent
+schema:
+
+```python
+empty = parse_schema('record A { "x": B }\nrecord B { "y": A }\nroot A')
+empty.is_empty()               # True
+empty.compatible_with(v1)      # True -- vacuous: empty accepts no documents
+```
+
+See [the Schema model & OSD: Empty schemas](schema.md#empty-schemas) for the
+full explanation and `prune()` semantics.
 
 ## Reading & writing other formats
 

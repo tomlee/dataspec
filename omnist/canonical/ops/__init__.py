@@ -5,6 +5,10 @@ CIKM 2010).
 """
 
 from .minimize import normalize
+from .prune import is_empty, prune, satisfiable_set
 from .subschema import compatible_with, equivalent
 
-__all__ = ["compatible_with", "equivalent", "normalize"]
+__all__ = [
+    "compatible_with", "equivalent", "normalize",
+    "is_empty", "prune", "satisfiable_set",
+]

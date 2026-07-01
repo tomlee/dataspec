@@ -31,7 +31,7 @@ def test_readme_at_a_glance():
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.2.13"
+    assert ds.__version__ == "0.2.14"
 
 
 def test_quickstart():
@@ -137,6 +137,24 @@ def test_schema_page_to_osd_pretty_and_compact():
     s = parse_schema('record Car { "license": string }\nroot Car')
     assert to_osd(s) == 'record Car {\n    "license": string,\n}\nroot Car\n'
     assert to_osd(s, indent=None) == 'record Car { "license": string } root Car\n'
+
+
+def test_schema_page_empty_schemas():
+    empty = parse_schema('record A { "x": B }\nrecord B { "y": A }\nroot A')
+    other = parse_schema('record C { "z": integer }\nroot C')
+
+    assert empty.is_empty()
+    assert empty.compatible_with(other)
+    assert not other.compatible_with(empty)
+
+    empty2 = parse_schema('record P { "q": P }\nroot P')
+    assert empty.equivalent(empty2)
+
+    s = parse_schema('record R { "x" [0,1]: Dead }\nrecord Dead { "d": Dead }\n'
+                     'root R')
+    assert not s.is_empty()
+    p = s.prune()
+    assert p.to_osd() == 'record R {\n}\nroot R\n'
     assert s.equivalent(parse_schema(to_osd(s, indent=None)))
 
 
@@ -217,6 +235,15 @@ def test_guide_operations_are_methods():
     assert v1.compatible_with(v2)
     assert not v2.compatible_with(v1)
     assert not v1.equivalent(v2)
+    n = v1.normalize()
+    assert n.equivalent(v1)
+
+
+def test_guide_empty_schemas():
+    v1 = parse_schema('record R { "host": string }\nroot R')
+    empty = parse_schema('record A { "x": B }\nrecord B { "y": A }\nroot A')
+    assert empty.is_empty()
+    assert empty.compatible_with(v1)
 
 
 def test_readme_schema_directed_deserialization():
@@ -428,7 +455,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.2.13"
+    assert ds.__version__ == "0.2.14"
 
 
 def test_api_docs_schema_raises():

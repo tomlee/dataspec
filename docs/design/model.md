@@ -279,6 +279,68 @@ given the values observed across all samples for that field's label:
 
 ---
 
+## 12. Satisfiability and pruning
+
+Not every well-formed `Schema` describes at least one document. A record
+requiring (`min >= 1`) a `Ref` to another record that in turn requires it
+back — a mandatory ref cycle — has no base case: satisfying it would need
+an infinitely deep document, which doesn't exist. Such a record is
+**unsatisfiable**; a schema whose root is unsatisfiable accepts the
+**empty language** (no document at all).
+
+**Satisfiability** (`ops/prune.py`, `satisfiable_set`) is the least
+fixpoint: a record is satisfiable iff every mandatory field (`min >= 1`) is
+either a `Scalar` (always satisfiable) or a `Ref` to an already-satisfiable
+record. Optional fields (`min == 0`) never block satisfiability — they
+simply need not be emitted. This is the complement of the paper's "useless
+/ irrational states": a record is useless (in the paper's sense) exactly
+when it's unsatisfiable here.
+
+**Why `compatible_with` needs this (Theorem 1 analog).** The paper's
+Algorithm 4 (SubschemaSA) is coinductive: when comparing two schemas'
+"states" (records) reachable through a matching sequence of fields, a
+repeated pair is assumed compatible without further checking, on the
+premise that an infinite matching sequence corresponds to an infinite
+document that both schemas would accept identically. That premise silently
+assumes every state involved is *reachable by some finite document* — i.e.
+satisfiable. Run the coinductive rule on an unsatisfiable record without
+that precondition and it produces a *false negative*: the cycle "matches
+itself" structurally, so naive SubschemaSA says the record is compatible
+with nothing outside the cycle, when the true answer is the opposite — an
+unsatisfiable schema's language is empty, so it is *vacuously* a subschema
+of everything. `ops/subschema.py` computes the A-side's satisfiable set
+once per `compatible_with` call and treats an unsatisfiable A-side record
+as trivially compatible (`_sub` returns `True` immediately), matching the
+correct, vacuous truth rather than the naive coinductive answer.
+
+**`prune()` <-> MakeUsefulSA.** The paper's MakeUsefulSA transforms an
+automaton by removing every useless (here: unsatisfiable) state before
+running SubschemaSA, so its coinductive rule's precondition always holds.
+`Schema.prune()` is the direct analog over omnist's model: it removes
+records unreachable from root, fields that can never be emitted (`max ==
+0`), and optional fields whose declared type is unsatisfiable (never
+actually emittable either, since the field would never validate) — then
+re-derives reachability from the reduced field set, since dropping a field
+can make a previously-reachable record unreachable in turn. The result is
+always `equivalent` to the input (same set of accepted documents), and
+`prune` is idempotent.
+
+**The root-unsatisfiable case is a deliberate exception.** If pruning
+`s.root` itself is unsatisfiable, `prune()` leaves that record's own fields
+untouched (only the rest of the environment is reduced to what's reachable
+from it). Field-pruning the root would strip out exactly the mandatory
+fields that make it unsatisfiable, silently producing a *different*,
+satisfiable schema — breaking the "prune preserves equivalence" guarantee
+that's the point of the operation. This mirrors the paper's own treatment:
+MakeUsefulSA modifies an automaton with an unsatisfiable start state rather
+than rejecting it outright, and the automaton's unsatisfiability is itself
+the meaningful fact being preserved, not an error condition to elide.
+
+See [the schema doc](../schema.md#empty-schemas) for a worked example and
+[the glossary](../glossary.md) for *satisfiable*/*empty schema*/*prune*.
+
+---
+
 ## Appendix: worked example
 
 Schema:

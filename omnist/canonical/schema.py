@@ -311,6 +311,19 @@ class Schema:
         from .ops import normalize
         return normalize(self)
 
+    def is_empty(self) -> bool:
+        """True iff this schema's root record is unsatisfiable -- no finite
+        document conforms to it (the schema's language is empty)."""
+        from .ops import is_empty
+        return is_empty(self)
+
+    def prune(self) -> "Schema":
+        """An equivalent schema with everything that can never match
+        removed: unreachable records, never-emittable (``max == 0``)
+        fields, and optional fields whose type can never be satisfied."""
+        from .ops import prune
+        return prune(self)
+
     # -- serialization --------------------------------------------------
     def to_osd(self, *, indent: Optional[int] = 4) -> str:
         from .osd import to_osd

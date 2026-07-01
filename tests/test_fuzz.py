@@ -417,3 +417,60 @@ def test_parse_schema_never_raises_unexpectedly_on_syntax_like_text(text):
             f"parse_schema raised {type(exc).__name__} instead of SchemaError "
             f"on input {text!r}"
         ) from exc
+
+
+# ---------------------------------------------------------------------------
+# 5. Schema fuzzing (issue #139) -- generated env of records, deliberately
+# including mandatory ([1,1] / [1,]) ref fields so the strategy CAN produce
+# a mandatory-only ref cycle (an unsatisfiable, empty-language schema).
+# Before #139 no schema-generation strategy existed in this file at all, so
+# the empty-schema bug (compatible_with/equivalent wrong for such schemas)
+# went unfound by property testing -- this section closes that gap with the
+# property the paper's Theorem 1 analog guarantees: an unsatisfiable schema
+# is vacuously compatible_with everything.
+# ---------------------------------------------------------------------------
+
+from omnist import INTEGER, STRING, Field, Record, Ref, Schema  # noqa: E402
+
+_RECORD_NAMES = ("A", "B", "C")
+
+# [1,1] and [1,None] are mandatory; [0,1] and [0,None] are optional. Both
+# kinds must appear with real probability -- an all-optional generator could
+# never produce a mandatory ref cycle, which is exactly the shape #139's bug
+# lived in.
+_cardinalities = st.sampled_from([(1, 1), (0, 1), (1, None), (0, None)])
+_field_types = st.one_of(st.just(STRING), st.just(INTEGER),
+                          st.sampled_from([Ref(n) for n in _RECORD_NAMES]))
+
+
+@st.composite
+def _fields(draw):
+    n = draw(st.integers(min_value=0, max_value=2))
+    fields = []
+    for i in range(n):
+        ftype = draw(_field_types)
+        lo, hi = draw(_cardinalities)
+        fields.append(Field(f"f{i}", ftype, lo, hi))
+    return fields
+
+
+@st.composite
+def schemas(draw):
+    """A Schema over a small, fixed-name env (``A``/``B``/``C``) -- small
+    enough that Hypothesis reliably explores both satisfiable and
+    unsatisfiable (mandatory ref cycle) shapes within a bounded number of
+    examples, since every record can reference every other record
+    (including itself)."""
+    env = {name: Record(draw(_fields())) for name in _RECORD_NAMES}
+    root_name = draw(st.sampled_from(_RECORD_NAMES))
+    return Schema(Ref(root_name), env)
+
+
+@_SUPPRESS
+@given(s=schemas(), t=schemas())
+def test_is_empty_implies_compatible_with_anything(s, t):
+    """The vacuity property (paper Theorem 1 analog): an unsatisfiable
+    schema's language is empty, so it's trivially a subschema of any other
+    schema, no matter what ``t`` looks like."""
+    if s.is_empty():
+        assert s.compatible_with(t)
